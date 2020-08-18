@@ -35,7 +35,7 @@ namespace TextToTMPNamespace
 		private const string DONT_CLOSE_SCENES_WARNING = "Scene(s) inside the 'Assets & Scenes To Upgrade' list will automatically be opened in order to upgrade the GameObjects inside them. You MUST NOT close these scenes until all the steps are completed!";
 		private const string BACKUP_PROJECT_WARNING = "Beyond this point, you can't undo your actions or go back. You are strongly recommended to backup your project before proceeding!";
 		private const string DONT_CLOSE_WINDOW_WARNING = "After this step, you MUST NOT close this window until all the steps are completed! Otherwise, you won't be able to restore the references to the upgraded components.";
-		private const string FIX_COMPILATION_ERRORS_WARNING = "If there are any compiler errors in the Console, then it means that some script(s) couldn't be upgraded completely. You should fix those error messages before proceeding.";
+		private const string FIX_COMPILATION_ERRORS_WARNING = "If there are any compiler errors in the Console, then it means that some script(s) couldn't be upgraded completely. You should fix those errors manually before proceeding.";
 
 		internal static readonly GUILayoutOption GL_WIDTH_15 = GUILayout.Width( 15f );
 		private readonly GUILayoutOption GL_WIDTH_25 = GUILayout.Width( 25f );
@@ -282,35 +282,27 @@ namespace TextToTMPNamespace
 					}
 
 					CollectReferences();
-
-					stage = UpgradeStage.UpgradeScripts;
-					GUIUtility.ExitGUI();
+					SwitchStage( UpgradeStage.UpgradeScripts );
 				}
 			}
 			else if( stage == UpgradeStage.UpgradeScripts )
 			{
 				GUILayout.Box( "Step 1/3: Upgrading Scripts", GL_EXPAND_WIDTH );
 
-				GUILayout.Label( "The following scripts will be upgraded:", boldWordWrappedLabel );
+				GUILayout.Label( "Text, InputField, Dropdown and TextMesh terms used inside these scripts will be upgraded to their TextMesh Pro variants:", boldWordWrappedLabel );
 
 				if( scriptsToUpgrade.Length > 0 )
-				{
-					EditorGUILayout.HelpBox( "Text, InputField, Dropdown and TextMesh terms used inside these scripts will be upgraded to their TextMesh Pro variants.", MessageType.Info );
 					scriptsToUpgrade.DrawOnGUI();
-				}
 				else
 					GUILayout.Label( "<None>" );
 
 				EditorGUILayout.Space();
 
 #if UNITY_2017_3_OR_NEWER
-				GUILayout.Label( "The following Assembly Definition Files will be upgraded:", boldWordWrappedLabel );
+				GUILayout.Label( "TextMesh Pro's Assembly Definition File (if exists) will be added to these Assembly Definition Files' 'Assembly Definition References' list:", boldWordWrappedLabel );
 
 				if( assemblyDefinitionFilesToUpgrade.Length > 0 )
-				{
-					EditorGUILayout.HelpBox( "TextMesh Pro's Assembly Definition File (if exists) will be added to these Assembly Definition Files' 'Assembly Definition References' list.", MessageType.Info );
 					assemblyDefinitionFilesToUpgrade.DrawOnGUI();
-				}
 				else
 					GUILayout.Label( "<None>" );
 
@@ -331,45 +323,35 @@ namespace TextToTMPNamespace
 				{
 					AssetDatabase.SaveAssets();
 					UpgradeScripts();
-
-					stage = UpgradeStage.PendingUpgradeScriptsCompletion;
-					GUIUtility.ExitGUI();
+					SwitchStage( UpgradeStage.PendingUpgradeScriptsCompletion );
 				}
 				GUI.enabled = true;
 
 				EditorGUILayout.Space();
 
 				if( GUILayout.Button( "DON'T UPGRADE SCRIPTS", GL_HEIGHT_30 ) && EditorUtility.DisplayDialog( "Warning", BACKUP_PROJECT_WARNING, "Got it!", "Cancel" ) && EditorUtility.DisplayDialog( "Warning", DONT_CLOSE_WINDOW_WARNING, "Got it!", "Cancel" ) )
-				{
-					stage = UpgradeStage.UpgradeComponents;
-					GUIUtility.ExitGUI();
-				}
+					SwitchStage( UpgradeStage.UpgradeComponents );
 
 				EditorGUILayout.Space();
 
 				if( GUILayout.Button( "BACK", GL_HEIGHT_30 ) )
-				{
-					stage = UpgradeStage.InitializeAndCollectReferences;
-					GUIUtility.ExitGUI();
-				}
+					SwitchStage( UpgradeStage.InitializeAndCollectReferences );
 			}
 			else if( stage == UpgradeStage.PendingUpgradeScriptsCompletion )
 			{
 				GUILayout.Box( "Step 1/3: Upgrading Scripts", GL_EXPAND_WIDTH );
 
 				if( EditorApplication.isCompiling )
-					GUILayout.Label( "Waiting for Unity to finish compiling the scripts...", EditorStyles.wordWrappedLabel );
+					GUILayout.Label( "Waiting for Unity to finish compiling the scripts...", boldWordWrappedLabel );
 				else
-					GUILayout.Label( FIX_COMPILATION_ERRORS_WARNING, EditorStyles.wordWrappedLabel );
+					GUILayout.Label( FIX_COMPILATION_ERRORS_WARNING, boldWordWrappedLabel );
 
 				EditorGUILayout.Space();
 
 				GUI.enabled = !EditorApplication.isCompiling;
 				if( GUILayout.Button( "NEXT STEP", GL_HEIGHT_30 ) && EditorUtility.DisplayDialog( "Warning", FIX_COMPILATION_ERRORS_WARNING, "Got it!", "Cancel" ) )
-				{
-					stage = UpgradeStage.UpgradeComponents;
-					GUIUtility.ExitGUI();
-				}
+					SwitchStage( UpgradeStage.UpgradeComponents );
+
 				GUI.enabled = true;
 			}
 			else if( stage == UpgradeStage.UpgradeComponents )
@@ -409,25 +391,20 @@ namespace TextToTMPNamespace
 				{
 					AssetDatabase.SaveAssets();
 					UpgradeComponents();
-
-					stage = UpgradeStage.UpdateReferences;
-					GUIUtility.ExitGUI();
+					SwitchStage( UpgradeStage.UpdateReferences );
 				}
 				GUI.enabled = true;
 
 				EditorGUILayout.Space();
 
 				if( GUILayout.Button( "DON'T UPGRADE COMPONENTS", GL_HEIGHT_30 ) )
-				{
-					stage = UpgradeStage.UpdateReferences;
-					GUIUtility.ExitGUI();
-				}
+					SwitchStage( UpgradeStage.UpdateReferences );
 			}
 			else if( stage == UpgradeStage.UpdateReferences )
 			{
 				GUILayout.Box( "Step 3/3: Reconnecting References", GL_EXPAND_WIDTH );
 
-				GUILayout.Label( "For objects whose variables were referencing the upgraded Text, InputField, Dropdown and TextMesh components, these variables will now refer to the components' TextMesh Pro variants.", EditorStyles.wordWrappedLabel );
+				GUILayout.Label( "For objects whose variables were referencing the upgraded Text, InputField, Dropdown and TextMesh components, these variables will now refer to the components' TextMesh Pro variants.", boldWordWrappedLabel );
 
 				EditorGUILayout.Space();
 
@@ -435,35 +412,36 @@ namespace TextToTMPNamespace
 				{
 					AssetDatabase.SaveAssets();
 					UpdateReferences();
-
-					stage = UpgradeStage.Finished;
-					GUIUtility.ExitGUI();
+					SwitchStage( UpgradeStage.Finished );
 				}
 
 				EditorGUILayout.Space();
 
 				if( GUILayout.Button( "DON'T RECONNECT REFERENCES", GL_HEIGHT_30 ) )
-				{
-					stage = UpgradeStage.Finished;
-					GUIUtility.ExitGUI();
-				}
+					SwitchStage( UpgradeStage.Finished );
 			}
 			else if( stage == UpgradeStage.Finished )
 			{
 				GUILayout.Box( "Upgrade Completed", GL_EXPAND_WIDTH );
-				GUILayout.Label( "You can now safely close this window and close the scenes that were opened during the upgrade process (if any).", EditorStyles.wordWrappedLabel );
+				GUILayout.Label( "You can now safely close this window and close the scenes that were opened during the upgrade process (if any).", boldWordWrappedLabel );
 
 				EditorGUILayout.Space();
 
 				if( GUILayout.Button( "START AGAIN", GL_HEIGHT_30 ) )
-				{
-					stage = UpgradeStage.InitializeAndCollectReferences;
-					GUIUtility.ExitGUI();
-				}
+					SwitchStage( UpgradeStage.InitializeAndCollectReferences );
 			}
 
 			EditorGUILayout.Space();
 			GUILayout.EndScrollView();
+		}
+
+		private void SwitchStage( UpgradeStage stage )
+		{
+			this.stage = stage;
+			scrollPos = Vector2.zero;
+
+			GUI.enabled = true;
+			GUIUtility.ExitGUI();
 		}
 
 		private void Initialize()
