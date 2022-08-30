@@ -53,6 +53,10 @@ namespace TextToTMPNamespace
 		}
 		#endregion
 
+		#region Constants
+		private const string TMP_INPUT_FIELD_TEXT_AREA_NAME = "Text Area";
+		#endregion
+
 		private bool alwaysUseOverflowForNonWrappingTexts = false;
 
 		private readonly HashSet<string> upgradedPrefabs = new HashSet<string>();
@@ -469,7 +473,7 @@ namespace TextToTMPNamespace
 			RectTransform viewport = null;
 			try
 			{
-				viewport = (RectTransform) new GameObject( "Text Area", typeof( RectTransform ) ).transform;
+				viewport = (RectTransform) new GameObject( TMP_INPUT_FIELD_TEXT_AREA_NAME, typeof( RectTransform ) ).transform;
 				viewport.transform.SetParent( tmp.transform, false );
 				viewport.SetSiblingIndex( textComponent.rectTransform.GetSiblingIndex() );
 				viewport.localPosition = textComponent.rectTransform.localPosition;

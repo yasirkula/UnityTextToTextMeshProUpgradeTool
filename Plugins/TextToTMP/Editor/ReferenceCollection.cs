@@ -464,11 +464,12 @@ namespace TextToTMPNamespace
 					return result;
 			}
 
-			// While InputFields are upgraded to TMP_InputField, a child object called "Text Area" can be created in the process. Then, InputField's child
-			// objects are made children of this "Text Area". This can break reference paths, so we should enter "Text Area" manually in this case
+			// While InputFields are upgraded to TMP_InputField, a child object called "Text Area" (TMP_INPUT_FIELD_TEXT_AREA_NAME) can be created
+			// in the process. Then, InputField's child objects are made children of this "Text Area". This can break reference paths, so we should
+			// enter "Text Area" manually in this case
 			if( obj.GetComponent<TMP_InputField>() )
 			{
-				Transform inputFieldViewport = obj.Find( "Text Area" );
+				Transform inputFieldViewport = obj.Find( TMP_INPUT_FIELD_TEXT_AREA_NAME );
 				if( inputFieldViewport )
 				{
 					for( int i = inputFieldViewport.childCount - 1; i >= 0; i-- )
