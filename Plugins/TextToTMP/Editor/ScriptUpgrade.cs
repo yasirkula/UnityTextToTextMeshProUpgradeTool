@@ -218,6 +218,7 @@ namespace TextToTMPNamespace.Instance{0}";
 
 #if UNITY_2017_3_OR_NEWER
 		private string textMeshProAssemblyDefinitionName;
+		private string textMeshProAssemblyDefinitionFilePath;
 #endif
 
 		private ObjectsToUpgradeList scriptsToUpgrade = new ObjectsToUpgradeList();
@@ -228,13 +229,19 @@ namespace TextToTMPNamespace.Instance{0}";
 		private void UpgradeScripts()
 		{
 #if UNITY_2017_3_OR_NEWER
-			if( !string.IsNullOrEmpty( CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName( "Unity.TextMeshPro" ) ) )
+			textMeshProAssemblyDefinitionFilePath = CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName( "Unity.TextMeshPro" );
+			if( !string.IsNullOrEmpty( textMeshProAssemblyDefinitionFilePath ) )
 				textMeshProAssemblyDefinitionName = "Unity.TextMeshPro";
 			else
 			{
 				string[] tmpScriptGuid = AssetDatabase.FindAssets( "TextMeshProUGUI t:MonoScript" );
 				if( tmpScriptGuid != null && tmpScriptGuid.Length > 0 )
+				{
 					textMeshProAssemblyDefinitionName = CompilationPipeline.GetAssemblyNameFromScriptPath( AssetDatabase.GUIDToAssetPath( tmpScriptGuid[0] ) );
+
+					if( !string.IsNullOrEmpty( textMeshProAssemblyDefinitionName ) )
+						textMeshProAssemblyDefinitionFilePath = CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName( textMeshProAssemblyDefinitionName );
+				}
 			}
 #endif
 
@@ -416,7 +423,7 @@ namespace TextToTMPNamespace.Instance{0}";
 					string assemblyPath = CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName( asmFile.references[i] );
 #endif
 
-					if( assemblyPath == textMeshProAssemblyDefinitionName )
+					if( assemblyPath == textMeshProAssemblyDefinitionFilePath )
 						return;
 				}
 			}
