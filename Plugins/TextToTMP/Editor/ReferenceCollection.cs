@@ -230,7 +230,7 @@ namespace TextToTMPNamespace
 					// those properties aren't interesting and mostly confusing)
 					bool isVisible = iteratingVisible && SerializedProperty.EqualContents( iterator, iteratorVisible );
 					if( isVisible )
-						iteratingVisible = iteratorVisible.NextVisible( true );
+						iteratingVisible = iteratorVisible.NextVisible( iteratorVisible.propertyType == SerializedPropertyType.Generic );
 					else
 					{
 						Type propFieldType;
