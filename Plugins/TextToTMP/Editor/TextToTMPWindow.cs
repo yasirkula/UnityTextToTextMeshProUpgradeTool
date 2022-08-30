@@ -577,10 +577,6 @@ namespace TextToTMPNamespace
 
 		private TMP_FontAsset GetCorrespondingTMPFontAsset( Font font, Component source, out Material fontMaterial )
 		{
-			fontMaterial = null;
-			if( !font )
-				return null;
-
 			FontUpgrade fontUpgrade = fontUpgrades[0];
 			for( int i = 1; i < fontUpgrades.Count; i++ )
 			{
