@@ -29,6 +29,10 @@ namespace TextToTMPNamespace
 		}
 		#endregion
 
+		#region Constants
+		private const string REFERENCE_PATH_SEPARATOR = "<x_->";
+		#endregion
+
 		// Unity's internal function that returns a SerializedProperty's corresponding FieldInfo
 		private delegate FieldInfo FieldInfoGetter( SerializedProperty p, out Type t );
 		private FieldInfoGetter fieldInfoGetter;
@@ -347,7 +351,7 @@ namespace TextToTMPNamespace
 			if( string.IsNullOrEmpty( assetPath ) )
 				return null;
 
-			assetPath += "<>"; // A unique separator
+			assetPath += REFERENCE_PATH_SEPARATOR; // A unique separator
 
 			if( target is GameObject )
 				assetPath += GetPathOfObject( ( (GameObject) target ).transform );
@@ -374,15 +378,15 @@ namespace TextToTMPNamespace
 				return null;
 			}
 
-			int pathSplitIndex = referencePath.IndexOf( "<>" );
+			int pathSplitIndex = referencePath.IndexOf( REFERENCE_PATH_SEPARATOR );
 			if( pathSplitIndex < 0 )
 			{
-				stringBuilder.AppendLine( "Couldn't restore reference: referencePath didn't have '<>' separator" );
+				stringBuilder.Append( "Couldn't restore reference: referencePath didn't have '" ).Append( REFERENCE_PATH_SEPARATOR ).AppendLine( "' separator" );
 				return null;
 			}
 
 			string assetOrScenePath = referencePath.Substring( 0, pathSplitIndex );
-			string hierarchyPath = referencePath.Length > pathSplitIndex + 2 ? referencePath.Substring( pathSplitIndex + 2 ) : null;
+			string hierarchyPath = referencePath.Length > ( pathSplitIndex + REFERENCE_PATH_SEPARATOR.Length ) ? referencePath.Substring( pathSplitIndex + REFERENCE_PATH_SEPARATOR.Length ) : null;
 
 			if( referenceType == typeof( Font ) )
 				return AssetDatabase.LoadAssetAtPath<Font>( assetOrScenePath );
