@@ -222,7 +222,7 @@ namespace TextToTMPNamespace
 				return null;
 
 			GameObject go = text.gameObject;
-			stringBuilder.AppendLine( "Upgrading Text: " + GetPathOfObject( go.transform ) );
+			stringBuilder.Append( "Upgrading Text: " ).AppendLine( GetPathOfObject( go.transform ) );
 
 			// Copy fields
 			Vector2 sizeDelta = text.rectTransform.sizeDelta;
@@ -277,7 +277,7 @@ namespace TextToTMPNamespace
 				return null;
 
 			GameObject go = text.gameObject;
-			stringBuilder.AppendLine( "Upgrading TextMesh: " + GetPathOfObject( go.transform ) );
+			stringBuilder.Append( "Upgrading TextMesh: " ).AppendLine( GetPathOfObject( go.transform ) );
 
 			// Copy fields
 			TextAlignmentOptions alignment = GetTMPAlignment( text.anchor, false );
@@ -322,7 +322,7 @@ namespace TextToTMPNamespace
 				return null;
 
 			GameObject go = inputField.gameObject;
-			stringBuilder.AppendLine( "Upgrading InputField: " + GetPathOfObject( go.transform ) );
+			stringBuilder.Append( "Upgrading InputField: " ).AppendLine( GetPathOfObject( go.transform ) );
 
 			// Copy fields
 			Vector2 sizeDelta = ( (RectTransform) inputField.transform ).sizeDelta;
@@ -418,7 +418,7 @@ namespace TextToTMPNamespace
 				return null;
 
 			GameObject go = dropdown.gameObject;
-			stringBuilder.AppendLine( "Upgrading Dropdown: " + GetPathOfObject( go.transform ) );
+			stringBuilder.Append( "Upgrading Dropdown: " ).AppendLine( GetPathOfObject( go.transform ) );
 
 			// Copy fields
 			Vector2 sizeDelta = ( (RectTransform) dropdown.transform ).sizeDelta;

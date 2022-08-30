@@ -92,7 +92,7 @@ namespace TextToTMPNamespace
 						reference.source = ConvertReferencePathToObject( reference.sourcePath, Type.GetType( reference.sourceType ) );
 						if( !reference.source )
 						{
-							stringBuilder.AppendLine( "<b>Pending reference source is no longer valid: " + reference.sourcePath + "</b>" );
+							stringBuilder.Append( "<b>Pending reference source is no longer valid: " ).Append( reference.sourcePath ).AppendLine( "</b>" );
 							continue;
 						}
 					}
@@ -107,7 +107,7 @@ namespace TextToTMPNamespace
 							target = ConvertReferencePathToObject( reference.targetPaths[j], reference.targetTypes[j] == PendingReferenceUpdate.TargetType.Font ? typeof( Font ) : typeof( GameObject ) );
 							if( !target )
 							{
-								stringBuilder.AppendLine( "<b>Pending reference target (at path " + reference.targetPaths[j] + ") is no longer valid for: " + reference.source.name + " (" + reference.source.GetType().Name + ") -> " + reference.propertyPaths[j] + "</b>" );
+								stringBuilder.Append( "<b>Pending reference target (at path " ).Append( reference.targetPaths[j] ).Append( ") is no longer valid for: " ).Append( reference.source.name ).Append( " (" ).Append( reference.source.GetType().Name ).Append( ") -> " ).Append( reference.propertyPaths[j] ).AppendLine( "</b>" );
 								continue;
 							}
 						}
@@ -119,7 +119,7 @@ namespace TextToTMPNamespace
 							case PendingReferenceUpdate.TargetType.Dropdown: target = ( (GameObject) target ).GetComponent<TMP_Dropdown>(); break;
 							case PendingReferenceUpdate.TargetType.TextMesh: target = ( (GameObject) target ).GetComponent<TextMeshPro>(); break;
 							case PendingReferenceUpdate.TargetType.Font:
-								stringBuilder.AppendLine( "Changing Font variable to TMP Font: " + reference.source.name + " (" + reference.source.GetType().Name + ") -> " + reference.propertyPaths[j] );
+								stringBuilder.Append( "Changing Font variable to TMP Font: " ).Append( reference.source.name ).Append( " (" ).Append( reference.source.GetType().Name ).Append( ") -> " ).AppendLine( reference.propertyPaths[j] );
 								target = GetCorrespondingTMPFontAsset( (Font) target );
 
 								break;
@@ -139,7 +139,7 @@ namespace TextToTMPNamespace
 							if( ( property.propertyType == SerializedPropertyType.ObjectReference && property.objectReferenceValue == target ) ||
 								( property.propertyType == SerializedPropertyType.ExposedReference && property.exposedReferenceValue == target ) )
 							{
-								stringBuilder.AppendLine( "Updated reference: " + reference.source.name + " (" + reference.source.GetType().Name + ") -> " + reference.propertyPaths[j] );
+								stringBuilder.Append( "Updated reference: " ).Append( reference.source.name ).Append( " (" ).Append( reference.source.GetType().Name ).Append( ") -> " ).AppendLine( reference.propertyPaths[j] );
 							}
 						}
 					}
@@ -360,7 +360,7 @@ namespace TextToTMPNamespace
 		// If a reference became null during the upgrade process, this functions tries to restore that reference
 		private Object ConvertReferencePathToObject( string referencePath, Type referenceType )
 		{
-			stringBuilder.AppendLine( "Reference to " + referencePath + " was lost during the upgrade. Attempting to restore it." );
+			stringBuilder.Append( "Reference to " ).Append( referencePath ).AppendLine( " was lost during the upgrade. Attempting to restore it." );
 
 			if( string.IsNullOrEmpty( referencePath ) )
 			{
@@ -390,7 +390,7 @@ namespace TextToTMPNamespace
 				return AssetDatabase.LoadAssetAtPath<ScriptableObject>( assetOrScenePath );
 			else if( !typeof( Component ).IsAssignableFrom( referenceType ) && !typeof( GameObject ).IsAssignableFrom( referenceType ) )
 			{
-				stringBuilder.AppendLine( "Couldn't restore reference: referenceType was extending " + referenceType.FullName );
+				stringBuilder.Append( "Couldn't restore reference: referenceType was extending " ).AppendLine( referenceType.FullName );
 				return null;
 			}
 
@@ -430,7 +430,7 @@ namespace TextToTMPNamespace
 			{
 				if( !( rootAsset is GameObject ) )
 				{
-					stringBuilder.AppendLine( "Couldn't restore reference: main asset at referencePath wasn't a GameObject, it was a " + rootAsset.GetType().FullName );
+					stringBuilder.Append( "Couldn't restore reference: main asset at referencePath wasn't a GameObject, it was a " ).AppendLine( rootAsset.GetType().FullName );
 					return null;
 				}
 

@@ -64,7 +64,7 @@ namespace TextToTMPNamespace
 		private ObjectsToUpgradeList assetsToUpgrade = new ObjectsToUpgradeList();
 		private ObjectsToUpgradeList scenesToUpgrade = new ObjectsToUpgradeList();
 
-		private StringBuilder stringBuilder = new StringBuilder( 1024 );
+		private readonly StringBuilder stringBuilder = new StringBuilder( 8192 );
 		private Vector2 scrollPos;
 
 		[MenuItem( "Window/Upgrade Text to TMP" )]
@@ -614,7 +614,7 @@ namespace TextToTMPNamespace
 				{
 					if( modifierComponents[i] && ( modifierComponents[i].GetType() == typeof( Shadow ) || modifierComponents[i].GetType() == typeof( Outline ) ) )
 					{
-						stringBuilder.AppendLine( "Removing " + modifierComponents[i].GetType().Name + " component from " + GetPathOfObject( source.transform ) );
+						stringBuilder.Append( "Removing " ).Append( modifierComponents[i].GetType().Name ).Append( " component from " ).AppendLine( GetPathOfObject( source.transform ) );
 						DestroyImmediate( modifierComponents[i], true );
 					}
 				}

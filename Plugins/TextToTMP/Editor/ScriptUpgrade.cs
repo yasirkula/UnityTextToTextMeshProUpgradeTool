@@ -377,14 +377,14 @@ namespace TextToTMPNamespace.Instance{0}";
 
 			if( scriptModified != script )
 			{
-				stringBuilder.AppendLine( "Upgrading script: " + scriptPath );
+				stringBuilder.Append( "Upgrading script: " ).AppendLine( scriptPath );
 				File.WriteAllText( scriptPath, scriptModified );
 			}
 		}
 
 		private void AddExtensionFunctionsToScript( string scriptPath, ref string scriptContents )
 		{
-			stringBuilder.AppendLine( "Adding TextToTMP extension functions to script: " + scriptPath );
+			stringBuilder.Append( "Adding TextToTMP extension functions to script: " ).AppendLine( scriptPath );
 
 			int extensionFunctionsInsertIndex = scriptContents.LastIndexOf( "using " );
 			if( extensionFunctionsInsertIndex >= 0 )
@@ -429,7 +429,7 @@ namespace TextToTMPNamespace.Instance{0}";
 				asmFile.references[asmFile.references.Length - 1] = textMeshProAssemblyDefinitionName;
 			}
 
-			stringBuilder.AppendLine( "Upgrading Assembly Definition File: " + path );
+			stringBuilder.Append( "Upgrading Assembly Definition File: " ).AppendLine( path );
 			File.WriteAllText( path, JsonUtility.ToJson( asmFile, true ) );
 		}
 #endif
