@@ -1,4 +1,4 @@
-= Text to TextMesh Pro Upgrade Tool =
+= Text to TextMesh Pro Upgrade Tool (v1.0.2) =
 
 Online documentation available at: https://github.com/yasirkula/UnityTextToTextMeshProUpgradeTool
 E-mail: yasirkula@gmail.com

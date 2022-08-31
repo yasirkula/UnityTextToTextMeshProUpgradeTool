@@ -60,12 +60,19 @@ namespace TextToTMPNamespace
 		private bool alwaysUseOverflowForNonWrappingTexts = false;
 
 		private readonly HashSet<string> upgradedPrefabs = new HashSet<string>();
+		private readonly List<PrefabInstancesRemovedComponent> upgradedComponentsToRemoveInPrefabInstances = new List<PrefabInstancesRemovedComponent>();
 
 		private FieldInfo unityEventPersistentCallsField;
+#if UNITY_2018_3_OR_NEWER
+		private MethodInfo prefabCyclicReferenceCheckerMethod;
+#endif
 
 		private void UpgradeComponents()
 		{
 			upgradedPrefabs.Clear();
+
+			List<GameObject> prefabsToUpgrade = new List<GameObject>( assetsToUpgrade.Length );
+			HashSet<string> prefabsToUpgradePaths = new HashSet<string>();
 
 			stringBuilder.Length = 0;
 
@@ -78,8 +85,32 @@ namespace TextToTMPNamespace
 					EditorUtility.DisplayProgressBar( "Upgrading components in assets...", asset, (float) progressCurrent / progressTotal );
 					progressCurrent++;
 
-					if( asset.EndsWith( ".prefab", StringComparison.OrdinalIgnoreCase ) )
-						UpgradeComponentsInPrefab( asset );
+					if( asset.EndsWith( ".prefab", StringComparison.OrdinalIgnoreCase ) && prefabsToUpgradePaths.Add( asset ) )
+					{
+						GameObject prefab = AssetDatabase.LoadMainAssetAtPath( asset ) as GameObject;
+						if( ShouldUpgradeComponentsInPrefab( prefab ) )
+						{
+							prefabsToUpgrade.Add( prefab );
+							progressTotal++;
+						}
+					}
+				}
+
+#if UNITY_2018_3_OR_NEWER
+				// Upgrade base prefabs before their variant prefabs so that changes to the base prefabs are reflected to their
+				// variant prefabs before we start upgrading those variant prefabs
+				if( prefabCyclicReferenceCheckerMethod == null )
+					prefabCyclicReferenceCheckerMethod = typeof( PrefabUtility ).GetMethod( "CheckIfAddingPrefabWouldResultInCyclicNesting", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static );
+
+				prefabsToUpgrade.Sort( ( prefab1, prefab2 ) => (bool) prefabCyclicReferenceCheckerMethod.Invoke( null, new object[] { prefab1, prefab2 } ) ? -1 : 1 );
+#endif
+
+				foreach( GameObject prefab in prefabsToUpgrade )
+				{
+					EditorUtility.DisplayProgressBar( "Upgrading components in prefabs...", AssetDatabase.GetAssetPath( prefab ), (float) progressCurrent / progressTotal );
+					progressCurrent++;
+
+					UpgradeComponentsInPrefab( prefab );
 				}
 
 				foreach( string scene in scenesToUpgrade )
@@ -121,69 +152,59 @@ namespace TextToTMPNamespace
 
 			GameObject[] rootGameObjects = scene.GetRootGameObjects();
 			for( int i = 0; i < rootGameObjects.Length; i++ )
-				UpgradeGameObjectRecursively( rootGameObjects[i] );
+				UpgradeGameObjectRecursively( rootGameObjects[i].transform, null );
 
 			EditorSceneManager.MarkSceneDirty( scene );
 		}
 
-		private void UpgradeComponentsInPrefab( string prefabPath )
+		private bool ShouldUpgradeComponentsInPrefab( GameObject prefab )
 		{
-			if( string.IsNullOrEmpty( prefabPath ) )
-				return;
-
-			if( upgradedPrefabs.Contains( prefabPath ) )
-				return;
-
-			upgradedPrefabs.Add( prefabPath );
-
-			GameObject prefab = AssetDatabase.LoadMainAssetAtPath( prefabPath ) as GameObject;
 			if( !prefab )
-				return;
+				return false;
 
 			if( ( prefab.hideFlags & HideFlags.NotEditable ) == HideFlags.NotEditable )
-				return;
+				return false;
 
 #if UNITY_2018_3_OR_NEWER
 			PrefabAssetType prefabAssetType = PrefabUtility.GetPrefabAssetType( prefab );
 			if( prefabAssetType != PrefabAssetType.Regular && prefabAssetType != PrefabAssetType.Variant )
-				return;
+				return false;
 #else
 			PrefabType prefabAssetType = PrefabUtility.GetPrefabType( prefab );
 			if( prefabAssetType != PrefabType.Prefab )
-				return;
+				return false;
 #endif
 
 			// Check if prefab has any upgradeable components
-			bool isUpgradeable = prefab.GetComponentInChildren<TextMesh>( true );
-			if( !isUpgradeable )
+			if( prefab.GetComponentInChildren<TextMesh>( true ) )
+				return true;
+
+			foreach( UIBehaviour graphicComponent in prefab.GetComponentsInChildren<UIBehaviour>( true ) )
 			{
-				UIBehaviour[] graphicComponents = prefab.GetComponentsInChildren<UIBehaviour>( true );
-				if( graphicComponents != null )
-				{
-					for( int i = 0; i < graphicComponents.Length; i++ )
-					{
-						if( graphicComponents[i] && ( graphicComponents[i] is Text || graphicComponents[i] is InputField || graphicComponents[i] is Dropdown ) )
-						{
-							isUpgradeable = true;
-							break;
-						}
-					}
-				}
+				if( graphicComponent && ( graphicComponent is Text || graphicComponent is InputField || graphicComponent is Dropdown ) )
+					return true;
 			}
 
-			if( !isUpgradeable )
-				return;
+			return false;
+		}
 
+		private void UpgradeComponentsInPrefab( GameObject prefab )
+		{
 			// Instantiate the prefab, we need instances to change children's parents (needed in InputField's upgrade)
 #if UNITY_2018_3_OR_NEWER
+			string prefabPath = AssetDatabase.GetAssetPath( prefab );
 			GameObject prefabInstanceRoot = PrefabUtility.LoadPrefabContents( prefabPath );
 #else
 			GameObject prefabInstanceRoot = (GameObject) PrefabUtility.InstantiatePrefab( prefab );
 			PrefabUtility.DisconnectPrefabInstance( prefabInstanceRoot );
 #endif
+
+			upgradedComponentsToRemoveInPrefabInstances.Clear();
+
 			try
 			{
-				UpgradeGameObjectRecursively( prefabInstanceRoot );
+				UpgradeGameObjectRecursively( prefabInstanceRoot.transform, prefab.transform );
+
 
 #if UNITY_2018_3_OR_NEWER
 				prefab = PrefabUtility.SaveAsPrefabAsset( prefabInstanceRoot, prefabPath );
@@ -200,30 +221,60 @@ namespace TextToTMPNamespace
 #endif
 			}
 
-			EditorUtility.SetDirty( prefab );
-		}
+			// Remove upgraded Text, InputField, Dropdown and TextMesh components from the prefab instances that
+			// originally had these components' legacy versions removed as prefab override, as well
+			foreach( PrefabInstancesRemovedComponent removedComponentHolder in upgradedComponentsToRemoveInPrefabInstances )
+			{
+				if( !removedComponentHolder.componentOwner )
+					continue;
 
-		private void UpgradeGameObjectRecursively( GameObject go )
-		{
+				foreach( GameObject prefabInstance in removedComponentHolder.removedPrefabInstances )
+				{
+					if( !prefabInstance )
+						continue;
+
+					foreach( Component component in prefabInstance.GetComponents( removedComponentHolder.UpgradedComponentType ) )
+					{
+						if( !component )
+							continue;
+
 #if UNITY_2018_3_OR_NEWER
-			// Upgrade encountered prefab assets
-			if( PrefabUtility.IsAnyPrefabInstanceRoot( go ) )
-				UpgradeComponentsInPrefab( PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot( go ) );
+						Component prefabComponent = PrefabUtility.GetCorrespondingObjectFromSource( component );
+#else
+						Component prefabComponent = (Component) PrefabUtility.GetPrefabParent( component );
 #endif
+						if( prefabComponent && prefabComponent.gameObject == removedComponentHolder.componentOwner )
+						{
+							DestroyImmediate( component, true );
+							EditorUtility.SetDirty( prefabInstance );
 
-			UpgradeDropdown( go.GetComponent<Dropdown>() );
-			UpgradeInputField( go.GetComponent<InputField>() );
-			UpgradeText( go.GetComponent<Text>() );
-			UpgradeTextMesh( go.GetComponent<TextMesh>() );
+							break;
+						}
+					}
+				}
+			}
 
-			for( int i = 0; i < go.transform.childCount; i++ )
-				UpgradeGameObjectRecursively( go.transform.GetChild( i ).gameObject );
+			EditorUtility.SetDirty( prefab );
+			AssetDatabase.SaveAssets();
 		}
 
-		private TextMeshProUGUI UpgradeText( Text text )
+		private void UpgradeGameObjectRecursively( Transform transform, Transform prefabTransform )
+		{
+			UpgradeDropdown( transform.GetComponent<Dropdown>(), prefabTransform ? prefabTransform.GetComponent<Dropdown>() : null );
+			UpgradeInputField( transform.GetComponent<InputField>(), prefabTransform ? prefabTransform.GetComponent<InputField>() : null );
+			UpgradeText( transform.GetComponent<Text>(), prefabTransform ? prefabTransform.GetComponent<Text>() : null );
+			UpgradeTextMesh( transform.GetComponent<TextMesh>(), prefabTransform ? prefabTransform.GetComponent<TextMesh>() : null );
+
+			for( int i = 0; i < transform.childCount; i++ )
+				UpgradeGameObjectRecursively( transform.GetChild( i ), prefabTransform ? prefabTransform.GetChild( i ) : null );
+		}
+
+		private TextMeshProUGUI UpgradeText( Text text, Text prefabText )
 		{
 			if( !text )
 				return null;
+
+			OnComponentIsBeingUpgraded( text, prefabText );
 
 			GameObject go = text.gameObject;
 			stringBuilder.Append( "Upgrading Text: " ).AppendLine( GetPathOfObject( go.transform ) );
@@ -275,10 +326,12 @@ namespace TextToTMPNamespace
 			return tmp;
 		}
 
-		private TextMeshPro UpgradeTextMesh( TextMesh text )
+		private TextMeshPro UpgradeTextMesh( TextMesh text, TextMesh prefabText )
 		{
 			if( !text )
 				return null;
+
+			OnComponentIsBeingUpgraded( text, prefabText );
 
 			GameObject go = text.gameObject;
 			stringBuilder.Append( "Upgrading TextMesh: " ).AppendLine( GetPathOfObject( go.transform ) );
@@ -320,10 +373,12 @@ namespace TextToTMPNamespace
 			return tmp;
 		}
 
-		private TMP_InputField UpgradeInputField( InputField inputField )
+		private TMP_InputField UpgradeInputField( InputField inputField, InputField prefabInputField )
 		{
 			if( !inputField )
 				return null;
+
+			OnComponentIsBeingUpgraded( inputField, prefabInputField );
 
 			GameObject go = inputField.gameObject;
 			stringBuilder.Append( "Upgrading InputField: " ).AppendLine( GetPathOfObject( go.transform ) );
@@ -359,8 +414,8 @@ namespace TextToTMPNamespace
 #endif
 
 			// Upgrade&copy child objects
-			TextMeshProUGUI textComponent = UpgradeText( inputField.textComponent );
-			Graphic placeholderComponent = ( inputField.placeholder as Text ) ? UpgradeText( (Text) inputField.placeholder ) : inputField.placeholder;
+			TextMeshProUGUI textComponent = UpgradeText( inputField.textComponent, prefabInputField ? prefabInputField.textComponent : null );
+			Graphic placeholderComponent = ( inputField.placeholder as Text ) ? UpgradeText( (Text) inputField.placeholder, prefabInputField ? prefabInputField.placeholder as Text : null ) : inputField.placeholder;
 
 			// Replace InputField with TMP_InputField
 			DestroyImmediate( inputField, true );
@@ -416,10 +471,12 @@ namespace TextToTMPNamespace
 			return tmp;
 		}
 
-		private TMP_Dropdown UpgradeDropdown( Dropdown dropdown )
+		private TMP_Dropdown UpgradeDropdown( Dropdown dropdown, Dropdown prefabDropdown )
 		{
 			if( !dropdown )
 				return null;
+
+			OnComponentIsBeingUpgraded( dropdown, prefabDropdown );
 
 			GameObject go = dropdown.gameObject;
 			stringBuilder.Append( "Upgrading Dropdown: " ).AppendLine( GetPathOfObject( go.transform ) );
@@ -439,8 +496,8 @@ namespace TextToTMPNamespace
 			object onValueChanged = CopyUnityEvent( dropdown.onValueChanged );
 
 			// Upgrade&copy child objects
-			TextMeshProUGUI captionText = UpgradeText( dropdown.captionText );
-			TextMeshProUGUI itemText = UpgradeText( dropdown.itemText );
+			TextMeshProUGUI captionText = UpgradeText( dropdown.captionText, prefabDropdown ? prefabDropdown.captionText : null );
+			TextMeshProUGUI itemText = UpgradeText( dropdown.itemText, prefabDropdown ? prefabDropdown.itemText : null );
 
 			// Replace Dropdown with TMP_Dropdown
 			DestroyImmediate( dropdown, true );
@@ -466,6 +523,16 @@ namespace TextToTMPNamespace
 			PasteUnityEvent( tmp.onValueChanged, onValueChanged );
 
 			return tmp;
+		}
+
+		private void OnComponentIsBeingUpgraded<T>( T component, T prefabComponent ) where T : Component
+		{
+			if( prefabComponent )
+			{
+				PrefabInstancesRemovedComponent removedComponentHolder = removedComponentsInPrefabInstances.Find( ( x ) => x.component == prefabComponent );
+				if( removedComponentHolder != null )
+					upgradedComponentsToRemoveInPrefabInstances.Add( removedComponentHolder );
+			}
 		}
 
 		private RectTransform CreateInputFieldViewport( TMP_InputField tmp, TextMeshProUGUI textComponent, Graphic placeholderComponent )

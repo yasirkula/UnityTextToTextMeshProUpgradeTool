@@ -27,6 +27,47 @@ namespace TextToTMPNamespace
 			public TargetType[] targetTypes;
 			public string[] targetPaths;
 		}
+
+		[Serializable]
+		private class PrefabInstancesRemovedComponent
+		{
+			public enum ComponentType { Text, InputField, Dropdown, TextMesh }
+
+			public Component component;
+			public GameObject componentOwner;
+			public ComponentType componentType;
+			public List<GameObject> removedPrefabInstances;
+
+			public Type UpgradedComponentType
+			{
+				get
+				{
+					switch( componentType )
+					{
+						case ComponentType.Text: return typeof( TextMeshProUGUI );
+						case ComponentType.InputField: return typeof( TMP_InputField );
+						case ComponentType.Dropdown: return typeof( TMP_Dropdown );
+						case ComponentType.TextMesh: return typeof( TextMeshPro );
+						default: return null;
+					}
+				}
+			}
+		}
+
+#if !UNITY_2018_3_OR_NEWER
+		// Variable names are the same as PrefabUtility.GetRemovedComponents's returned RemovedComponent class
+		private struct RemovedComponentLegacy
+		{
+			public readonly Component assetComponent;
+			public readonly GameObject containingInstanceGameObject;
+
+			public RemovedComponentLegacy( Component assetComponent, GameObject containingInstanceGameObject )
+			{
+				this.assetComponent = assetComponent;
+				this.containingInstanceGameObject = containingInstanceGameObject;
+			}
+		}
+#endif
 		#endregion
 
 		#region Constants
@@ -37,7 +78,8 @@ namespace TextToTMPNamespace
 		private delegate FieldInfo FieldInfoGetter( SerializedProperty p, out Type t );
 		private FieldInfoGetter fieldInfoGetter;
 
-		private List<PendingReferenceUpdate> pendingReferenceUpdates = new List<PendingReferenceUpdate>();
+		private List<PendingReferenceUpdate> pendingReferenceUpdates = new List<PendingReferenceUpdate>( 1024 );
+		private List<PrefabInstancesRemovedComponent> removedComponentsInPrefabInstances = new List<PrefabInstancesRemovedComponent>( 64 );
 
 		private void CollectReferences()
 		{
@@ -49,6 +91,7 @@ namespace TextToTMPNamespace
 			fieldInfoGetter = (FieldInfoGetter) Delegate.CreateDelegate( typeof( FieldInfoGetter ), fieldInfoGetterMethod );
 
 			pendingReferenceUpdates.Clear();
+			removedComponentsInPrefabInstances.Clear();
 
 			int progressCurrent = 0;
 			int progressTotal = assetsToUpgrade.EnabledCount + scenesToUpgrade.EnabledCount;
@@ -206,6 +249,9 @@ namespace TextToTMPNamespace
 			if( obj is Text || obj is InputField || obj is Dropdown || obj is TextMesh )
 				return;
 
+			if( obj is Transform )
+				CollectRemovedComponentsFromPrefabInstance( (Transform) obj );
+
 			if( obj is MonoBehaviour )
 				AddScriptToUpgrade( AssetDatabase.GetAssetPath( MonoScript.FromMonoBehaviour( (MonoBehaviour) obj ) ) );
 			else if( obj is ScriptableObject )
@@ -330,6 +376,52 @@ namespace TextToTMPNamespace
 						targets = targets.ToArray(),
 						targetTypes = targetTypes.ToArray(),
 						targetPaths = targetPaths.ToArray()
+					} );
+				}
+			}
+		}
+
+		// Find removed/destroyed Text, InputField, Dropdown and TextMesh components in prefab instances so that they can be
+		// removed/destroyed again after they are converted to their TextMesh Pro variants in the source prefab assets
+		private void CollectRemovedComponentsFromPrefabInstance( Transform obj )
+		{
+#if UNITY_2018_3_OR_NEWER
+			if( !PrefabUtility.IsAnyPrefabInstanceRoot( obj.gameObject ) )
+#else
+			if( PrefabUtility.GetPrefabType( obj.gameObject ) != PrefabType.PrefabInstance )
+#endif
+				return;
+
+#if UNITY_2018_3_OR_NEWER
+			foreach( RemovedComponent removedComponent in PrefabUtility.GetRemovedComponents( obj.gameObject ) )
+#else
+			foreach( RemovedComponentLegacy removedComponent in GetRemovedComponentsFromPrefabInstance( obj ) )
+#endif
+			{
+				Component prefabComponent = removedComponent.assetComponent;
+				PrefabInstancesRemovedComponent.ComponentType prefabComponentType;
+				if( prefabComponent is Text )
+					prefabComponentType = PrefabInstancesRemovedComponent.ComponentType.Text;
+				else if( prefabComponent is InputField )
+					prefabComponentType = PrefabInstancesRemovedComponent.ComponentType.InputField;
+				else if( prefabComponent is Dropdown )
+					prefabComponentType = PrefabInstancesRemovedComponent.ComponentType.Dropdown;
+				else if( prefabComponent is TextMesh )
+					prefabComponentType = PrefabInstancesRemovedComponent.ComponentType.TextMesh;
+				else
+					continue;
+
+				PrefabInstancesRemovedComponent removedComponentHolder = removedComponentsInPrefabInstances.Find( ( x ) => x.component == prefabComponent );
+				if( removedComponentHolder != null )
+					removedComponentHolder.removedPrefabInstances.Add( removedComponent.containingInstanceGameObject );
+				else
+				{
+					removedComponentsInPrefabInstances.Add( new PrefabInstancesRemovedComponent()
+					{
+						component = prefabComponent,
+						componentOwner = prefabComponent.gameObject,
+						componentType = prefabComponentType,
+						removedPrefabInstances = new List<GameObject>() { removedComponent.containingInstanceGameObject }
 					} );
 				}
 			}
