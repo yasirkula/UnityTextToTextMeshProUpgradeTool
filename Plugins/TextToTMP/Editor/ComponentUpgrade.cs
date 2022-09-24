@@ -66,6 +66,7 @@ namespace TextToTMPNamespace
 #if UNITY_2018_3_OR_NEWER
 		private MethodInfo prefabCyclicReferenceCheckerMethod;
 #endif
+		private MethodInfo rectTransformAnchorsSetterMethod;
 
 		private void UpgradeComponents()
 		{
@@ -604,6 +605,20 @@ namespace TextToTMPNamespace
 							if( child.parent == viewport )
 							{
 								child.SetSiblingIndex( 0 );
+
+								// If child's anchors are separated, set them to min=(0,0) and max=(1,1) so that they envelop the viewport
+								if( ( child.anchorMax - child.anchorMin ).sqrMagnitude > Mathf.Epsilon )
+								{
+									// See: https://github.com/Unity-Technologies/UnityCsReference/blob/33cbfe062d795667c39e16777230e790fcd4b28b/Editor/Mono/Inspector/RectTransformEditor.cs#L1272-L1275
+									// See: https://github.com/Unity-Technologies/UnityCsReference/blob/73c12b5a403abad9a300f01a81e7aaf30a0d30b5/Editor/Mono/Inspector/LayoutDropdownWindow.cs#L343-L348
+									if( rectTransformAnchorsSetterMethod == null )
+										rectTransformAnchorsSetterMethod = typeof( Editor ).Assembly.GetType( "UnityEditor.RectTransformEditor" ).GetMethod( "SetAnchorSmart", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static, null, new Type[] { typeof( RectTransform ), typeof( float ), typeof( int ), typeof( bool ), typeof( bool ), typeof( bool ) }, null );
+
+									rectTransformAnchorsSetterMethod.Invoke( null, new object[] { child, 0, 0, false, true, true } );
+									rectTransformAnchorsSetterMethod.Invoke( null, new object[] { child, 1, 0, true, true, true } );
+									rectTransformAnchorsSetterMethod.Invoke( null, new object[] { child, 0, 1, false, true, true } );
+									rectTransformAnchorsSetterMethod.Invoke( null, new object[] { child, 1, 1, true, true, true } );
+								}
 
 #if UNITY_2018_3_OR_NEWER
 								PrefabUtility.RecordPrefabInstancePropertyModifications( child );
