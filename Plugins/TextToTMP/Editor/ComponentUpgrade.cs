@@ -436,6 +436,11 @@ namespace TextToTMPNamespace
 			TextMeshProUGUI textComponent = UpgradeText( inputField.textComponent, prefabInputField ? prefabInputField.textComponent : null );
 			Graphic placeholderComponent = ( inputField.placeholder as Text ) ? UpgradeText( (Text) inputField.placeholder, prefabInputField ? prefabInputField.placeholder as Text : null ) : inputField.placeholder;
 
+			// Apply the changes that TMP_DefaultControls.cs applies by default to new TMP_InputFields
+			if( textComponent ) textComponent.extraPadding = true;
+			if( placeholderComponent as TextMeshProUGUI ) ( (TextMeshProUGUI) placeholderComponent ).extraPadding = true;
+			if( placeholderComponent && !placeholderComponent.GetComponent<LayoutElement>() ) placeholderComponent.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
+
 			// Replace InputField with TMP_InputField
 			DestroyImmediate( inputField, true );
 			TMP_InputField tmp = go.AddComponent<TMP_InputField>();
@@ -574,6 +579,11 @@ namespace TextToTMPNamespace
 					viewport.pivot = textTransform.pivot;
 					viewport.anchoredPosition = textTransform.anchoredPosition;
 					viewport.sizeDelta = textTransform.sizeDelta;
+
+					// RectMask2D.padding is reportedly added in Unity 2019.4.14: https://forum.unity.com/threads/2-1-4-does-not-contain-a-definition-for-padding.1064537/
+#if UNITY_2019_4_OR_NEWER && !UNITY_2019_4_1 && !UNITY_2019_4_2 && !UNITY_2019_4_3 && !UNITY_2019_4_4 && !UNITY_2019_4_5 && !UNITY_2019_4_6 && !UNITY_2019_4_7 && !UNITY_2019_4_8 && !UNITY_2019_4_9 && !UNITY_2019_4_10 && !UNITY_2019_4_11 && !UNITY_2019_4_12 && !UNITY_2019_4_13
+					viewport.GetComponent<RectMask2D>().padding = new Vector4( -8f, -5f, -8f, -5f );
+#endif
 
 #if UNITY_2018_3_OR_NEWER
 					PrefabUtility.RecordPrefabInstancePropertyModifications( viewport.gameObject );
