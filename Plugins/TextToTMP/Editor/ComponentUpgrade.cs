@@ -260,13 +260,26 @@ namespace TextToTMPNamespace
 
 		private void UpgradeGameObjectRecursively( Transform transform, Transform prefabTransform )
 		{
-			UpgradeDropdown( transform.GetComponent<Dropdown>(), prefabTransform ? prefabTransform.GetComponent<Dropdown>() : null );
-			UpgradeInputField( transform.GetComponent<InputField>(), prefabTransform ? prefabTransform.GetComponent<InputField>() : null );
-			UpgradeText( transform.GetComponent<Text>(), prefabTransform ? prefabTransform.GetComponent<Text>() : null );
-			UpgradeTextMesh( transform.GetComponent<TextMesh>(), prefabTransform ? prefabTransform.GetComponent<TextMesh>() : null );
+			try
+			{
+				UpgradeDropdown( transform.GetComponent<Dropdown>(), prefabTransform ? prefabTransform.GetComponent<Dropdown>() : null );
+				UpgradeInputField( transform.GetComponent<InputField>(), prefabTransform ? prefabTransform.GetComponent<InputField>() : null );
+				UpgradeText( transform.GetComponent<Text>(), prefabTransform ? prefabTransform.GetComponent<Text>() : null );
+				UpgradeTextMesh( transform.GetComponent<TextMesh>(), prefabTransform ? prefabTransform.GetComponent<TextMesh>() : null );
 
-			for( int i = 0; i < transform.childCount; i++ )
-				UpgradeGameObjectRecursively( transform.GetChild( i ), prefabTransform ? prefabTransform.GetChild( i ) : null );
+				for( int i = 0; i < transform.childCount; i++ )
+					UpgradeGameObjectRecursively( transform.GetChild( i ), prefabTransform ? prefabTransform.GetChild( i ) : null );
+			}
+			catch( Exception e )
+			{
+				if( !e.Data.Contains( "LoggedHierarchy" ) )
+				{
+					e.Data.Add( "LoggedHierarchy", true );
+					Debug.LogError( "Error while upgrading components of: " + GetPathOfObject( transform ), prefabTransform ? prefabTransform.root.gameObject : transform.gameObject );
+				}
+
+				throw;
+			}
 		}
 
 		private TextMeshProUGUI UpgradeText( Text text, Text prefabText )
