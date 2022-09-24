@@ -263,12 +263,18 @@ namespace TextToTMPNamespace
 			try
 			{
 				UpgradeDropdown( transform.GetComponent<Dropdown>(), prefabTransform ? prefabTransform.GetComponent<Dropdown>() : null );
-				UpgradeInputField( transform.GetComponent<InputField>(), prefabTransform ? prefabTransform.GetComponent<InputField>() : null );
+				TMP_InputField inputField = UpgradeInputField( transform.GetComponent<InputField>(), prefabTransform ? prefabTransform.GetComponent<InputField>() : null, false );
 				UpgradeText( transform.GetComponent<Text>(), prefabTransform ? prefabTransform.GetComponent<Text>() : null );
 				UpgradeTextMesh( transform.GetComponent<TextMesh>(), prefabTransform ? prefabTransform.GetComponent<TextMesh>() : null );
 
 				for( int i = 0; i < transform.childCount; i++ )
 					UpgradeGameObjectRecursively( transform.GetChild( i ), prefabTransform ? prefabTransform.GetChild( i ) : null );
+
+				// TMP_InputField objects have an extra Viewport (Text Area) child object, create it if necessary. We're creating that Viewport after traversing
+				// the InputField's children because this operation can change some of those children's parents and while traversing hierarchies, we want
+				// transform and prefabTransform to be synchronized
+				if( inputField )
+					CreateInputFieldViewport( inputField );
 			}
 			catch( Exception e )
 			{
@@ -386,7 +392,7 @@ namespace TextToTMPNamespace
 			return tmp;
 		}
 
-		private TMP_InputField UpgradeInputField( InputField inputField, InputField prefabInputField )
+		private TMP_InputField UpgradeInputField( InputField inputField, InputField prefabInputField, bool createViewportImmediately = true )
 		{
 			if( !inputField )
 				return null;
@@ -466,20 +472,9 @@ namespace TextToTMPNamespace
 			PasteUnityEvent( tmp.onEndEdit, onEndEdit );
 			PasteUnityEvent( tmp.onValueChanged, onValueChanged );
 
-			// TMP InputField objects have an extra Viewport (Text Area) child object, create it if necessary
-			if( textComponent )
-			{
-				RectTransform viewport;
-				if( textComponent.transform.parent != tmp.transform )
-					viewport = (RectTransform) textComponent.transform.parent;
-				else
-					viewport = CreateInputFieldViewport( tmp, textComponent, placeholderComponent );
-
-				if( !viewport.GetComponent<RectMask2D>() )
-					viewport.gameObject.AddComponent<RectMask2D>();
-
-				tmp.textViewport = viewport;
-			}
+			// TMP_InputField objects have an extra Viewport (Text Area) child object, create it if necessary
+			if( createViewportImmediately )
+				CreateInputFieldViewport( tmp );
 
 			return tmp;
 		}
@@ -548,57 +543,78 @@ namespace TextToTMPNamespace
 			}
 		}
 
-		private RectTransform CreateInputFieldViewport( TMP_InputField tmp, TextMeshProUGUI textComponent, Graphic placeholderComponent )
+		private void CreateInputFieldViewport( TMP_InputField tmp )
 		{
+			if( !tmp.textComponent )
+				return;
+
+			RectTransform textTransform = tmp.textComponent.rectTransform;
+			RectTransform placeholderTransform = tmp.placeholder ? tmp.placeholder.rectTransform : null;
+
 			RectTransform viewport = null;
-			try
+			if( textTransform.parent != tmp.transform )
 			{
-				viewport = (RectTransform) new GameObject( TMP_INPUT_FIELD_TEXT_AREA_NAME, typeof( RectTransform ) ).transform;
-				viewport.transform.SetParent( tmp.transform, false );
-				viewport.SetSiblingIndex( textComponent.rectTransform.GetSiblingIndex() );
-				viewport.localPosition = textComponent.rectTransform.localPosition;
-				viewport.localRotation = textComponent.rectTransform.localRotation;
-				viewport.localScale = textComponent.rectTransform.localScale;
-				viewport.anchorMin = textComponent.rectTransform.anchorMin;
-				viewport.anchorMax = textComponent.rectTransform.anchorMax;
-				viewport.pivot = textComponent.rectTransform.pivot;
-				viewport.anchoredPosition = textComponent.rectTransform.anchoredPosition;
-				viewport.sizeDelta = textComponent.rectTransform.sizeDelta;
+				viewport = (RectTransform) textTransform.parent;
 
-#if UNITY_2018_3_OR_NEWER
-				PrefabUtility.RecordPrefabInstancePropertyModifications( viewport.gameObject );
-				PrefabUtility.RecordPrefabInstancePropertyModifications( viewport.transform );
-#endif
-
-				for( int i = tmp.transform.childCount - 1; i >= 0; i-- )
+				if( !viewport.GetComponent<RectMask2D>() )
+					viewport.gameObject.AddComponent<RectMask2D>();
+			}
+			else
+			{
+				try
 				{
-					Transform child = tmp.transform.GetChild( i );
-					if( child == viewport )
-						continue;
-
-					if( child == textComponent.rectTransform || ( placeholderComponent && child == placeholderComponent.rectTransform ) )
-					{
-						child.SetParent( viewport, true );
-						child.SetSiblingIndex( 0 );
+					viewport = (RectTransform) new GameObject( TMP_INPUT_FIELD_TEXT_AREA_NAME, typeof( RectTransform ), typeof( RectMask2D ) ).transform;
+					viewport.SetParent( tmp.transform, false );
+					viewport.SetSiblingIndex( textTransform.GetSiblingIndex() );
+					viewport.localPosition = textTransform.localPosition;
+					viewport.localRotation = textTransform.localRotation;
+					viewport.localScale = textTransform.localScale;
+					viewport.anchorMin = textTransform.anchorMin;
+					viewport.anchorMax = textTransform.anchorMax;
+					viewport.pivot = textTransform.pivot;
+					viewport.anchoredPosition = textTransform.anchoredPosition;
+					viewport.sizeDelta = textTransform.sizeDelta;
 
 #if UNITY_2018_3_OR_NEWER
-						PrefabUtility.RecordPrefabInstancePropertyModifications( child );
+					PrefabUtility.RecordPrefabInstancePropertyModifications( viewport.gameObject );
+					PrefabUtility.RecordPrefabInstancePropertyModifications( viewport );
 #endif
+
+					for( int i = tmp.transform.childCount - 1; i >= 0; i-- )
+					{
+						RectTransform child = tmp.transform.GetChild( i ) as RectTransform;
+						if( !child || child == viewport )
+							continue;
+
+						if( child == textTransform || child == placeholderTransform )
+						{
+							child.SetParent( viewport, true );
+
+							// SetParent can fail if InputField is an instance of a prefab in the scene and the prefab asset isn't upgraded (only the scene is upgraded)
+							if( child.parent == viewport )
+							{
+								child.SetSiblingIndex( 0 );
+
+#if UNITY_2018_3_OR_NEWER
+								PrefabUtility.RecordPrefabInstancePropertyModifications( child );
+#endif
+							}
+						}
 					}
 				}
-			}
-			catch
-			{
-				if( viewport )
+				catch
 				{
-					DestroyImmediate( viewport );
-					viewport = null;
-				}
+					if( viewport )
+					{
+						DestroyImmediate( viewport.gameObject );
+						viewport = null;
+					}
 
-				throw;
+					throw;
+				}
 			}
 
-			return viewport;
+			tmp.textViewport = viewport;
 		}
 
 		private List<TMP_Dropdown.OptionData> GetTMPDropdownOptions( List<Dropdown.OptionData> options )
