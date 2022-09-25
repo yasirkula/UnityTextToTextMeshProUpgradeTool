@@ -246,6 +246,8 @@ namespace TextToTMPNamespace
 #endif
 						if( prefabComponent && prefabComponent.gameObject == removedComponentHolder.componentOwner )
 						{
+							stringBuilder.Append( "Removing " ).Append( component.GetType().Name ).Append( " from " ).Append( GetPathOfObject( component.transform ) ).AppendLine( " since its legacy version was also removed as prefab override" );
+
 							DestroyImmediate( component, true );
 							EditorUtility.SetDirty( prefabInstance );
 
@@ -464,7 +466,7 @@ namespace TextToTMPNamespace
 			tmp.enabled = enabled;
 			tmp.inputType = inputType;
 			tmp.keyboardType = keyboardType;
-			if( tmp.lineType == lineType ) tmp.lineType = (TMP_InputField.LineType) ( ( (int) lineType + 1 ) % 3 ); // lineType adjusts Text's overflow settings but only if the lineType value is different
+			if( tmp.lineType == lineType ) tmp.lineType = (TMP_InputField.LineType) ( ( (int) lineType + 1 ) % 3 ); // lineType adjusts Text's enableWordWrapping setting but only if the lineType value is different
 			tmp.lineType = lineType;
 			if( textComponent ) textComponent.overflowMode = TextOverflowModes.Overflow; // lineType doesn't modify this value, though. If must be set to Overflow for TMP_InputField texts
 			tmp.readOnly = readOnly;

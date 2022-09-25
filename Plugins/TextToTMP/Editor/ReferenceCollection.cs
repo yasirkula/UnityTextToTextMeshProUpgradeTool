@@ -460,20 +460,20 @@ namespace TextToTMPNamespace
 
 			if( string.IsNullOrEmpty( referencePath ) )
 			{
-				stringBuilder.AppendLine( "Couldn't restore reference: referencePath was null" );
+				stringBuilder.AppendLine( "<b>Couldn't restore reference: referencePath was null</b>" );
 				return null;
 			}
 
 			if( referenceType == null )
 			{
-				stringBuilder.AppendLine( "Couldn't restore reference: referenceType was null" );
+				stringBuilder.AppendLine( "<b>Couldn't restore reference: referenceType was null</b>" );
 				return null;
 			}
 
 			int pathSplitIndex = referencePath.IndexOf( REFERENCE_PATH_SEPARATOR );
 			if( pathSplitIndex < 0 )
 			{
-				stringBuilder.Append( "Couldn't restore reference: referencePath didn't have '" ).Append( REFERENCE_PATH_SEPARATOR ).AppendLine( "' separator" );
+				stringBuilder.Append( "<b>Couldn't restore reference: referencePath didn't have '" ).Append( REFERENCE_PATH_SEPARATOR ).AppendLine( "' separator</b>" );
 				return null;
 			}
 
@@ -486,20 +486,20 @@ namespace TextToTMPNamespace
 				return AssetDatabase.LoadAssetAtPath<ScriptableObject>( assetOrScenePath );
 			else if( !typeof( Component ).IsAssignableFrom( referenceType ) && !typeof( GameObject ).IsAssignableFrom( referenceType ) )
 			{
-				stringBuilder.Append( "Couldn't restore reference: referenceType was extending " ).AppendLine( referenceType.FullName );
+				stringBuilder.Append( "<b>Couldn't restore reference: referenceType was extending " ).Append( referenceType.FullName ).AppendLine( "</b>" );
 				return null;
 			}
 
 			Object rootAsset = AssetDatabase.LoadMainAssetAtPath( assetOrScenePath );
 			if( !rootAsset )
 			{
-				stringBuilder.AppendLine( "Couldn't restore reference: Asset/Scene couldn't be loaded from referencePath" );
+				stringBuilder.AppendLine( "<b>Couldn't restore reference: Asset/Scene couldn't be loaded from referencePath</b>" );
 				return null;
 			}
 
 			if( string.IsNullOrEmpty( hierarchyPath ) )
 			{
-				stringBuilder.AppendLine( "Couldn't restore reference: hierarchyPath was null" );
+				stringBuilder.AppendLine( "<b>Couldn't restore reference: hierarchyPath was null</b>" );
 				return null;
 			}
 
@@ -510,7 +510,7 @@ namespace TextToTMPNamespace
 				Scene scene = SceneManager.GetSceneByPath( assetOrScenePath );
 				if( !scene.IsValid() || !scene.isLoaded )
 				{
-					stringBuilder.AppendLine( "Couldn't restore reference: Scene at referencePath wasn't valid or it wasn't loaded" );
+					stringBuilder.AppendLine( "<b>Couldn't restore reference: Scene at referencePath wasn't valid or it wasn't loaded</b>" );
 					return null;
 				}
 
@@ -526,7 +526,7 @@ namespace TextToTMPNamespace
 			{
 				if( !( rootAsset is GameObject ) )
 				{
-					stringBuilder.Append( "Couldn't restore reference: main asset at referencePath wasn't a GameObject, it was a " ).AppendLine( rootAsset.GetType().FullName );
+					stringBuilder.Append( "<b>Couldn't restore reference: main asset at referencePath wasn't a GameObject, it was a " ).Append( rootAsset.GetType().FullName ).AppendLine( "</b>" );
 					return null;
 				}
 
