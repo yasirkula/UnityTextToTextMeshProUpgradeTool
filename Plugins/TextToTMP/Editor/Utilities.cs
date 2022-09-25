@@ -166,6 +166,25 @@ namespace TextToTMPNamespace
 			return null;
 		}
 
+		private bool ComponentHasAnyPrefabInstanceModifications( Object component )
+		{
+#if UNITY_2018_3_OR_NEWER
+			if( PrefabUtility.IsPartOfPrefabInstance( component ) )
+#else
+			if( PrefabUtility.GetPrefabType( component ) == PrefabType.PrefabInstance )
+#endif
+			{
+				SerializedProperty iterator = new SerializedObject( component ).GetIterator();
+				while( iterator.Next( true ) )
+				{
+					if( iterator.prefabOverride )
+						return true;
+				}
+			}
+
+			return false;
+		}
+
 #if !UNITY_2018_3_OR_NEWER
 		private RemovedComponentLegacy[] GetRemovedComponentsFromPrefabInstance( Transform instance )
 		{

@@ -15,44 +15,6 @@ namespace TextToTMPNamespace
 {
 	public partial class TextToTMPWindow
 	{
-		#region Helper Classes
-		private class SelectableObjectProperties
-		{
-			private readonly AnimationTriggers animationTriggers;
-			private readonly ColorBlock colors;
-			private readonly Image image;
-			private readonly bool interactable;
-			private readonly Navigation navigation;
-			private readonly SpriteState spriteState;
-			private readonly Graphic targetGraphic;
-			private readonly Selectable.Transition transition;
-
-			public SelectableObjectProperties( Selectable selectable )
-			{
-				animationTriggers = selectable.animationTriggers;
-				colors = selectable.colors;
-				image = selectable.image;
-				interactable = selectable.interactable;
-				navigation = selectable.navigation;
-				spriteState = selectable.spriteState;
-				targetGraphic = selectable.targetGraphic;
-				transition = selectable.transition;
-			}
-
-			public void ApplyTo( Selectable selectable )
-			{
-				selectable.animationTriggers = animationTriggers;
-				selectable.colors = colors;
-				selectable.image = image;
-				selectable.interactable = interactable;
-				selectable.navigation = navigation;
-				selectable.spriteState = spriteState;
-				selectable.targetGraphic = targetGraphic;
-				selectable.transition = transition;
-			}
-		}
-		#endregion
-
 		#region Constants
 		private const string TMP_INPUT_FIELD_TEXT_AREA_NAME = "Text Area";
 		#endregion
@@ -78,7 +40,7 @@ namespace TextToTMPNamespace
 			stringBuilder.Length = 0;
 
 			int progressCurrent = 0;
-			int progressTotal = assetsToUpgrade.EnabledCount + scenesToUpgrade.EnabledCount;
+			int progressTotal = assetsToUpgrade.EnabledCount + scenesToUpgrade.EnabledCount + modifiedTextPrefabInstances.Count + modifiedTextMeshPrefabInstances.Count + modifiedInputFieldPrefabInstances.Count + modifiedDropdownPrefabInstances.Count;
 			try
 			{
 				foreach( string asset in assetsToUpgrade )
@@ -121,6 +83,15 @@ namespace TextToTMPNamespace
 
 					UpgradeComponentsInScene( SceneManager.GetSceneByPath( scene ) );
 				}
+
+				foreach( TextProperties modifiedPrefabInstance in modifiedTextPrefabInstances )
+					ApplyPrefabInstanceModifications( modifiedPrefabInstance, ( tmp ) => PasteTextProperties( tmp, modifiedPrefabInstance ), ref progressCurrent, progressTotal );
+				foreach( TextMeshProperties modifiedPrefabInstance in modifiedTextMeshPrefabInstances )
+					ApplyPrefabInstanceModifications( modifiedPrefabInstance, ( tmp ) => PasteTextMeshProperties( tmp, modifiedPrefabInstance ), ref progressCurrent, progressTotal );
+				foreach( InputFieldProperties modifiedPrefabInstance in modifiedInputFieldPrefabInstances )
+					ApplyPrefabInstanceModifications( modifiedPrefabInstance, ( tmp ) => PasteInputFieldProperties( tmp, modifiedPrefabInstance ), ref progressCurrent, progressTotal );
+				foreach( DropdownProperties modifiedPrefabInstance in modifiedDropdownPrefabInstances )
+					ApplyPrefabInstanceModifications( modifiedPrefabInstance, ( tmp ) => PasteDropdownProperties( tmp, modifiedPrefabInstance ), ref progressCurrent, progressTotal );
 			}
 			finally
 			{
@@ -303,49 +274,64 @@ namespace TextToTMPNamespace
 
 			// Copy fields
 			Vector2 sizeDelta = text.rectTransform.sizeDelta;
-
-			TextAlignmentOptions alignment = GetTMPAlignment( text.alignment, text.alignByGeometry );
-			bool bestFit = text.resizeTextForBestFit;
-			int bestFitMaxSize = text.resizeTextMaxSize;
-			int bestFitMinSize = text.resizeTextMinSize;
-			Color color = text.color;
-			bool enabled = text.enabled;
-			Material fontMaterial;
-			TMP_FontAsset font = GetCorrespondingTMPFontAsset( text.font, text, out fontMaterial );
-			int fontSize = text.fontSize;
-			FontStyles fontStyle = GetTMPFontStyle( text.fontStyle );
-			bool horizontalWrapMode = text.horizontalOverflow == HorizontalWrapMode.Wrap;
-			float lineSpacing = ( text.lineSpacing - 1 ) * 100f;
-			bool raycastTarget = text.raycastTarget;
-			bool supportRichText = text.supportRichText;
-			string _text = text.text;
-			TextOverflowModes verticalOverflow = GetTMPVerticalOverflow( text.verticalOverflow, text.horizontalOverflow );
+			TextProperties properties = CopyTextProperties( text );
 
 			// Replace Text with TextMeshProUGUI
 			DestroyImmediate( text, true );
 			TextMeshProUGUI tmp = go.AddComponent<TextMeshProUGUI>();
 
 			// Paste fields
-			tmp.alignment = alignment;
-			tmp.enableAutoSizing = bestFit;
-			tmp.fontSizeMax = bestFitMaxSize;
-			tmp.fontSizeMin = bestFitMinSize;
-			tmp.color = color;
-			tmp.enabled = enabled;
-			tmp.font = font;
-			tmp.fontMaterial = fontMaterial;
-			tmp.fontSize = fontSize;
-			tmp.fontStyle = fontStyle;
-			tmp.enableWordWrapping = horizontalWrapMode;
-			tmp.lineSpacing = lineSpacing;
-			tmp.raycastTarget = raycastTarget;
-			tmp.richText = supportRichText;
-			tmp.text = _text;
-			tmp.overflowMode = verticalOverflow;
-
+			PasteTextProperties( tmp, properties );
 			tmp.rectTransform.sizeDelta = sizeDelta;
 
 			return tmp;
+		}
+
+		private TextProperties CopyTextProperties( Text text )
+		{
+			Material fontMaterial;
+			TMP_FontAsset font = GetCorrespondingTMPFontAsset( text.font, text, out fontMaterial );
+
+			return new TextProperties()
+			{
+				gameObject = text.gameObject,
+				alignment = GetTMPAlignment( text.alignment, text.alignByGeometry ),
+				bestFit = text.resizeTextForBestFit,
+				bestFitMaxSize = text.resizeTextMaxSize,
+				bestFitMinSize = text.resizeTextMinSize,
+				color = text.color,
+				enabled = text.enabled,
+				fontMaterial = fontMaterial,
+				font = font,
+				fontSize = text.fontSize,
+				fontStyle = GetTMPFontStyle( text.fontStyle ),
+				horizontalWrapMode = text.horizontalOverflow == HorizontalWrapMode.Wrap,
+				lineSpacing = ( text.lineSpacing - 1 ) * 100f,
+				raycastTarget = text.raycastTarget,
+				supportRichText = text.supportRichText,
+				text = text.text,
+				verticalOverflow = GetTMPVerticalOverflow( text.verticalOverflow, text.horizontalOverflow )
+			};
+		}
+
+		private void PasteTextProperties( TextMeshProUGUI tmp, TextProperties properties )
+		{
+			tmp.alignment = properties.alignment;
+			tmp.enableAutoSizing = properties.bestFit;
+			tmp.fontSizeMax = properties.bestFitMaxSize;
+			tmp.fontSizeMin = properties.bestFitMinSize;
+			tmp.color = properties.color;
+			tmp.enabled = properties.enabled;
+			tmp.font = properties.font;
+			tmp.fontMaterial = properties.fontMaterial;
+			tmp.fontSize = properties.fontSize;
+			tmp.fontStyle = properties.fontStyle;
+			tmp.enableWordWrapping = properties.horizontalWrapMode;
+			tmp.lineSpacing = properties.lineSpacing;
+			tmp.raycastTarget = properties.raycastTarget;
+			tmp.richText = properties.supportRichText;
+			tmp.text = properties.text;
+			tmp.overflowMode = properties.verticalOverflow;
 		}
 
 		private TextMeshPro UpgradeTextMesh( TextMesh text, TextMesh prefabText )
@@ -359,40 +345,57 @@ namespace TextToTMPNamespace
 			stringBuilder.Append( "Upgrading TextMesh: " ).AppendLine( GetPathOfObject( go.transform ) );
 
 			// Copy fields
-			TextAlignmentOptions alignment = GetTMPAlignment( text.anchor, false );
-			float characterSize = text.characterSize;
-			Color color = text.color;
-			Material fontMaterial;
-			TMP_FontAsset font = GetCorrespondingTMPFontAsset( text.font, text, out fontMaterial );
-			int fontSize = text.fontSize > 0 ? text.fontSize : 13;
-			FontStyles fontStyle = GetTMPFontStyle( text.fontStyle );
-			float lineSpacing = ( text.lineSpacing - 1 ) * 100f;
-			float offsetZ = text.offsetZ;
-			bool richText = text.richText;
-			string _text = text.text;
+			TextMeshProperties properties = CopyTextMeshProperties( text );
 
-			// Replace Text with TextMeshProUGUI
+			// Replace TextMesh with TextMeshPro
 			DestroyImmediate( text, true );
 			TextMeshPro tmp = go.AddComponent<TextMeshPro>();
 
 			// Paste fields
-			tmp.alignment = alignment;
-			tmp.color = color;
-			tmp.font = font;
-			tmp.fontMaterial = fontMaterial;
-			tmp.fontSize = fontSize;
-			tmp.fontStyle = fontStyle;
-			tmp.lineSpacing = lineSpacing;
-			tmp.richText = richText;
-			tmp.text = _text;
+			PasteTextMeshProperties( tmp, properties );
 
 			tmp.enableWordWrapping = false;
 			tmp.overflowMode = TextOverflowModes.Overflow;
 			tmp.rectTransform.sizeDelta = Vector2.zero;
-			tmp.rectTransform.localScale *= characterSize;
-			tmp.rectTransform.Translate( new Vector3( 0f, 0f, offsetZ ) );
 
 			return tmp;
+		}
+
+		private TextMeshProperties CopyTextMeshProperties( TextMesh text )
+		{
+			Material fontMaterial;
+			TMP_FontAsset font = GetCorrespondingTMPFontAsset( text.font, text, out fontMaterial );
+
+			return new TextMeshProperties()
+			{
+				gameObject = text.gameObject,
+				alignment = GetTMPAlignment( text.anchor, false ),
+				characterSize = text.characterSize,
+				color = text.color,
+				fontMaterial = fontMaterial,
+				font = font,
+				fontSize = text.fontSize > 0 ? text.fontSize : 13,
+				fontStyle = GetTMPFontStyle( text.fontStyle ),
+				lineSpacing = ( text.lineSpacing - 1 ) * 100f,
+				offsetZ = text.offsetZ,
+				richText = text.richText,
+				text = text.text
+			};
+		}
+
+		private void PasteTextMeshProperties( TextMeshPro tmp, TextMeshProperties properties )
+		{
+			tmp.alignment = properties.alignment;
+			tmp.color = properties.color;
+			tmp.font = properties.font;
+			tmp.fontMaterial = properties.fontMaterial;
+			tmp.fontSize = properties.fontSize;
+			tmp.fontStyle = properties.fontStyle;
+			tmp.lineSpacing = properties.lineSpacing;
+			tmp.richText = properties.richText;
+			tmp.text = properties.text;
+			tmp.rectTransform.localScale *= properties.characterSize;
+			tmp.rectTransform.Translate( new Vector3( 0f, 0f, properties.offsetZ ) );
 		}
 
 		private TMP_InputField UpgradeInputField( InputField inputField, InputField prefabInputField, bool createViewportImmediately = true )
@@ -407,40 +410,15 @@ namespace TextToTMPNamespace
 
 			// Copy fields
 			Vector2 sizeDelta = ( (RectTransform) inputField.transform ).sizeDelta;
-			SelectableObjectProperties selectableProperties = new SelectableObjectProperties( inputField );
+			InputFieldProperties properties = CopyInputFieldProperties( inputField );
 
-			char asteriskChar = inputField.asteriskChar;
-			float caretBlinkRate = inputField.caretBlinkRate;
-			bool customCaretColor = inputField.customCaretColor;
-			Color? caretColor = null;
-			try { caretColor = inputField.caretColor; } catch { }
-			float caretWidth = inputField.caretWidth;
-			int characterLimit = inputField.characterLimit;
-			TMP_InputField.CharacterValidation characterValidation = GetTMPCharacterValidation( inputField.characterValidation );
-			TMP_InputField.ContentType contentType = GetTMPContentType( inputField.contentType );
-			bool enabled = inputField.enabled;
-			TMP_InputField.InputType inputType = GetTMPInputType( inputField.inputType );
-			TouchScreenKeyboardType keyboardType = inputField.keyboardType;
-			TMP_InputField.LineType lineType = GetTMPLineType( inputField.lineType );
-			bool readOnly = inputField.readOnly;
-			Color selectionColor = inputField.selectionColor;
-			bool shouldHideMobileInput = inputField.shouldHideMobileInput;
-			string _text = inputField.text;
-
-			// Copy UnityEvents
-			object onEndEdit = CopyUnityEvent( inputField.onEndEdit );
-#if UNITY_5_3_OR_NEWER
-			object onValueChanged = CopyUnityEvent( inputField.onValueChanged );
-#else
-			object onValueChanged = CopyUnityEvent( inputField.onValueChange );
-#endif
-
-			// Upgrade&copy child objects
+			// Upgrade child objects
 			TextMeshProUGUI textComponent = UpgradeText( inputField.textComponent, prefabInputField ? prefabInputField.textComponent : null );
 			Graphic placeholderComponent = ( inputField.placeholder as Text ) ? UpgradeText( (Text) inputField.placeholder, prefabInputField ? prefabInputField.placeholder as Text : null ) : inputField.placeholder;
 
 			// Apply the changes that TMP_DefaultControls.cs applies by default to new TMP_InputFields
 			if( textComponent ) textComponent.extraPadding = true;
+			if( textComponent ) textComponent.overflowMode = TextOverflowModes.Overflow;
 			if( placeholderComponent as TextMeshProUGUI ) ( (TextMeshProUGUI) placeholderComponent ).extraPadding = true;
 			if( placeholderComponent && !placeholderComponent.GetComponent<LayoutElement>() ) placeholderComponent.gameObject.AddComponent<LayoutElement>().ignoreLayout = true;
 
@@ -448,43 +426,88 @@ namespace TextToTMPNamespace
 			DestroyImmediate( inputField, true );
 			TMP_InputField tmp = go.AddComponent<TMP_InputField>();
 
-			// Paste child objects
-			tmp.textComponent = textComponent;
-			tmp.placeholder = placeholderComponent;
-
 			// Paste fields
-			selectableProperties.ApplyTo( tmp );
-
-			tmp.asteriskChar = asteriskChar;
-			tmp.caretBlinkRate = caretBlinkRate;
-			tmp.customCaretColor = customCaretColor;
-			try { if( caretColor.HasValue ) tmp.caretColor = caretColor.Value; } catch { }
-			tmp.caretWidth = Mathf.RoundToInt( caretWidth );
-			tmp.characterLimit = characterLimit;
-			tmp.characterValidation = characterValidation;
-			tmp.contentType = contentType;
-			tmp.enabled = enabled;
-			tmp.inputType = inputType;
-			tmp.keyboardType = keyboardType;
-			if( tmp.lineType == lineType ) tmp.lineType = (TMP_InputField.LineType) ( ( (int) lineType + 1 ) % 3 ); // lineType adjusts Text's enableWordWrapping setting but only if the lineType value is different
-			tmp.lineType = lineType;
-			if( textComponent ) textComponent.overflowMode = TextOverflowModes.Overflow; // lineType doesn't modify this value, though. If must be set to Overflow for TMP_InputField texts
-			tmp.readOnly = readOnly;
-			tmp.selectionColor = selectionColor;
-			tmp.shouldHideMobileInput = shouldHideMobileInput;
-			tmp.text = _text;
-
+			PasteInputFieldProperties( tmp, properties );
 			( (RectTransform) tmp.transform ).sizeDelta = sizeDelta;
-
-			// Paste UnityEvents
-			PasteUnityEvent( tmp.onEndEdit, onEndEdit );
-			PasteUnityEvent( tmp.onValueChanged, onValueChanged );
 
 			// TMP_InputField objects have an extra Viewport (Text Area) child object, create it if necessary
 			if( createViewportImmediately )
 				CreateInputFieldViewport( tmp );
 
 			return tmp;
+		}
+
+		private InputFieldProperties CopyInputFieldProperties( InputField inputField )
+		{
+			Color? caretColor = null;
+			try { caretColor = inputField.caretColor; } catch { }
+
+			return new InputFieldProperties()
+			{
+				gameObject = inputField.gameObject,
+				selectableProperties = new SelectableObjectProperties( inputField ),
+
+				textComponentGameObject = inputField.textComponent ? inputField.textComponent.gameObject : null,
+				placeholderGameObject = inputField.placeholder ? inputField.placeholder.gameObject : null,
+
+				asteriskChar = inputField.asteriskChar,
+				caretBlinkRate = inputField.caretBlinkRate,
+				customCaretColor = inputField.customCaretColor,
+				hasCaretColor = caretColor.HasValue,
+				caretColor = caretColor.GetValueOrDefault(),
+				caretWidth = inputField.caretWidth,
+				characterLimit = inputField.characterLimit,
+				characterValidation = GetTMPCharacterValidation( inputField.characterValidation ),
+				contentType = GetTMPContentType( inputField.contentType ),
+				enabled = inputField.enabled,
+				inputType = GetTMPInputType( inputField.inputType ),
+				keyboardType = inputField.keyboardType,
+				lineType = GetTMPLineType( inputField.lineType ),
+				readOnly = inputField.readOnly,
+				richText = inputField.textComponent ? inputField.textComponent.supportRichText : true, // InputField.richText overrides textComponent's Rich Text property so copy that value from the textComponent
+				selectionColor = inputField.selectionColor,
+				shouldHideMobileInput = inputField.shouldHideMobileInput,
+				text = inputField.text,
+
+				// Copy UnityEvents
+				onEndEdit = CopyUnityEvent( inputField.onEndEdit ),
+#if UNITY_5_3_OR_NEWER
+				onValueChanged = CopyUnityEvent( inputField.onValueChanged )
+#else
+				onValueChanged = CopyUnityEvent( inputField.onValueChange )
+#endif
+			};
+		}
+
+		private void PasteInputFieldProperties( TMP_InputField tmp, InputFieldProperties properties )
+		{
+			properties.selectableProperties.ApplyTo( tmp );
+
+			tmp.textComponent = properties.textComponentGameObject ? properties.textComponentGameObject.GetComponent<TextMeshProUGUI>() : null;
+			tmp.placeholder = properties.placeholderGameObject ? properties.placeholderGameObject.GetComponent<Graphic>() : null;
+
+			tmp.asteriskChar = properties.asteriskChar;
+			tmp.caretBlinkRate = properties.caretBlinkRate;
+			tmp.customCaretColor = properties.customCaretColor;
+			try { if( properties.hasCaretColor ) tmp.caretColor = properties.caretColor; } catch { }
+			tmp.caretWidth = Mathf.RoundToInt( properties.caretWidth );
+			tmp.characterLimit = properties.characterLimit;
+			tmp.characterValidation = properties.characterValidation;
+			tmp.contentType = properties.contentType;
+			tmp.enabled = properties.enabled;
+			tmp.inputType = properties.inputType;
+			tmp.keyboardType = properties.keyboardType;
+			if( tmp.lineType == properties.lineType ) tmp.lineType = (TMP_InputField.LineType) ( ( (int) properties.lineType + 1 ) % 3 ); // lineType adjusts Text's enableWordWrapping setting but only if the lineType value is different
+			tmp.lineType = properties.lineType;
+			tmp.readOnly = properties.readOnly;
+			tmp.richText = properties.richText;
+			tmp.selectionColor = properties.selectionColor;
+			tmp.shouldHideMobileInput = properties.shouldHideMobileInput;
+			tmp.text = properties.text;
+
+			// Paste UnityEvents
+			PasteUnityEvent( tmp.onEndEdit, properties.onEndEdit );
+			PasteUnityEvent( tmp.onValueChanged, properties.onValueChanged );
 		}
 
 		private TMP_Dropdown UpgradeDropdown( Dropdown dropdown, Dropdown prefabDropdown )
@@ -499,46 +522,61 @@ namespace TextToTMPNamespace
 
 			// Copy fields
 			Vector2 sizeDelta = ( (RectTransform) dropdown.transform ).sizeDelta;
-			SelectableObjectProperties selectableProperties = new SelectableObjectProperties( dropdown );
+			DropdownProperties properties = CopyDropdownProperties( dropdown );
 
-			Image captionImage = dropdown.captionImage;
-			bool enabled = dropdown.enabled;
-			Image itemImage = dropdown.itemImage;
-			List<TMP_Dropdown.OptionData> options = GetTMPDropdownOptions( dropdown.options );
-			RectTransform template = dropdown.template;
-			int value = dropdown.value;
-
-			// Copy UnityEvents
-			object onValueChanged = CopyUnityEvent( dropdown.onValueChanged );
-
-			// Upgrade&copy child objects
-			TextMeshProUGUI captionText = UpgradeText( dropdown.captionText, prefabDropdown ? prefabDropdown.captionText : null );
-			TextMeshProUGUI itemText = UpgradeText( dropdown.itemText, prefabDropdown ? prefabDropdown.itemText : null );
+			// Upgrade child objects
+			UpgradeText( dropdown.captionText, prefabDropdown ? prefabDropdown.captionText : null );
+			UpgradeText( dropdown.itemText, prefabDropdown ? prefabDropdown.itemText : null );
 
 			// Replace Dropdown with TMP_Dropdown
 			DestroyImmediate( dropdown, true );
 			TMP_Dropdown tmp = go.AddComponent<TMP_Dropdown>();
 
-			// Paste child objects
-			tmp.captionText = captionText;
-			tmp.itemText = itemText;
-
 			// Paste fields
-			selectableProperties.ApplyTo( tmp );
-
-			tmp.captionImage = captionImage;
-			tmp.enabled = enabled;
-			tmp.itemImage = itemImage;
-			tmp.options = options;
-			tmp.template = template;
-			tmp.value = value;
-
+			PasteDropdownProperties( tmp, properties );
 			( (RectTransform) tmp.transform ).sizeDelta = sizeDelta;
 
-			// Paste UnityEvents
-			PasteUnityEvent( tmp.onValueChanged, onValueChanged );
-
 			return tmp;
+		}
+
+		private DropdownProperties CopyDropdownProperties( Dropdown dropdown )
+		{
+			return new DropdownProperties()
+			{
+				gameObject = dropdown.gameObject,
+				selectableProperties = new SelectableObjectProperties( dropdown ),
+
+				template = dropdown.template,
+				captionTextGameObject = dropdown.captionText ? dropdown.captionText.gameObject : null,
+				itemTextGameObject = dropdown.itemText ? dropdown.itemText.gameObject : null,
+				captionImage = dropdown.captionImage,
+				itemImage = dropdown.itemImage,
+
+				enabled = dropdown.enabled,
+				options = GetTMPDropdownOptions( dropdown.options ),
+				value = dropdown.value,
+
+				// Copy UnityEvents
+				onValueChanged = CopyUnityEvent( dropdown.onValueChanged )
+			};
+		}
+
+		private void PasteDropdownProperties( TMP_Dropdown tmp, DropdownProperties properties )
+		{
+			properties.selectableProperties.ApplyTo( tmp );
+
+			tmp.template = properties.template;
+			tmp.captionText = properties.captionTextGameObject ? properties.captionTextGameObject.GetComponent<TextMeshProUGUI>() : null;
+			tmp.itemText = properties.itemTextGameObject ? properties.itemTextGameObject.GetComponent<TextMeshProUGUI>() : null;
+			tmp.captionImage = properties.captionImage;
+			tmp.itemImage = properties.itemImage;
+
+			tmp.enabled = properties.enabled;
+			tmp.options = properties.options;
+			tmp.value = properties.value;
+
+			// Paste UnityEvents
+			PasteUnityEvent( tmp.onValueChanged, properties.onValueChanged );
 		}
 
 		private void OnComponentIsBeingUpgraded<T>( T component, T prefabComponent ) where T : Component
@@ -642,6 +680,30 @@ namespace TextToTMPNamespace
 			}
 
 			tmp.textViewport = viewport;
+		}
+
+		private void ApplyPrefabInstanceModifications<LegacyComponentType, UpgradedComponentType>( ComponentProperties<LegacyComponentType, UpgradedComponentType> properties, Action<UpgradedComponentType> applyModificationsFunction, ref int progressCurrent, int progressTotal ) where LegacyComponentType : Component where UpgradedComponentType : Component
+		{
+			EditorUtility.DisplayProgressBar( "Applying prefab instance modifications...", properties.gameObject ? GetPathOfObject( properties.gameObject.transform ) : "Missing", (float) progressCurrent / progressTotal );
+			progressCurrent++;
+
+			if( !properties.gameObject )
+			{
+				stringBuilder.Append( "<b>Prefab instance with " ).Append( typeof( LegacyComponentType ).Name ).AppendLine( " modifications is missing</b>" );
+				return;
+			}
+
+			UpgradedComponentType tmp = properties.gameObject.GetComponent<UpgradedComponentType>();
+			if( !tmp )
+			{
+				stringBuilder.Append( "<b>Prefab instance with modifications is missing its upgraded " ).Append( typeof( UpgradedComponentType ).Name ).AppendLine( " component</b>" );
+				return;
+			}
+
+			stringBuilder.Append( "Applying prefab instance modifications to upgraded component: " ).Append( GetPathOfObject( tmp.transform ) ).Append( "." ).AppendLine( typeof( UpgradedComponentType ).Name );
+			applyModificationsFunction( tmp );
+
+			EditorUtility.SetDirty( tmp );
 		}
 
 		private List<TMP_Dropdown.OptionData> GetTMPDropdownOptions( List<Dropdown.OptionData> options )
@@ -757,7 +819,7 @@ namespace TextToTMPNamespace
 
 					if( unityEventPersistentCallsField == null )
 					{
-						stringBuilder.AppendLine( "<b>Couldn't copy UnityEvent!</b>" );
+						stringBuilder.AppendLine( "<b>Couldn't copy UnityEvent</b>" );
 						return null;
 					}
 				}
@@ -768,7 +830,10 @@ namespace TextToTMPNamespace
 
 		private void PasteUnityEvent( UnityEventBase target, object unityEvent )
 		{
-			unityEventPersistentCallsField.SetValue( target, unityEvent );
+			if( unityEvent != null )
+				unityEventPersistentCallsField.SetValue( target, unityEvent );
+			else
+				stringBuilder.AppendLine( "<b>Couldn't paste UnityEvent because it became null (it can happen on Unity 2019.2 or earlier if a script was modified during the upgrade process)</b>" );
 		}
 	}
 }

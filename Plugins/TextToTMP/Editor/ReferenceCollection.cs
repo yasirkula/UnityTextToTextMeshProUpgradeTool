@@ -79,6 +79,12 @@ namespace TextToTMPNamespace
 		private FieldInfoGetter fieldInfoGetter;
 
 		private List<PendingReferenceUpdate> pendingReferenceUpdates = new List<PendingReferenceUpdate>( 1024 );
+
+		private List<TextProperties> modifiedTextPrefabInstances = new List<TextProperties>( 128 );
+		private List<TextMeshProperties> modifiedTextMeshPrefabInstances = new List<TextMeshProperties>( 128 );
+		private List<InputFieldProperties> modifiedInputFieldPrefabInstances = new List<InputFieldProperties>( 128 );
+		private List<DropdownProperties> modifiedDropdownPrefabInstances = new List<DropdownProperties>( 128 );
+
 		private List<PrefabInstancesRemovedComponent> removedComponentsInPrefabInstances = new List<PrefabInstancesRemovedComponent>( 64 );
 
 		private void CollectReferences()
@@ -91,6 +97,10 @@ namespace TextToTMPNamespace
 			fieldInfoGetter = (FieldInfoGetter) Delegate.CreateDelegate( typeof( FieldInfoGetter ), fieldInfoGetterMethod );
 
 			pendingReferenceUpdates.Clear();
+			modifiedTextPrefabInstances.Clear();
+			modifiedTextMeshPrefabInstances.Clear();
+			modifiedInputFieldPrefabInstances.Clear();
+			modifiedDropdownPrefabInstances.Clear();
 			removedComponentsInPrefabInstances.Clear();
 
 			int progressCurrent = 0;
@@ -245,9 +255,47 @@ namespace TextToTMPNamespace
 			if( ( obj.hideFlags & HideFlags.NotEditable ) == HideFlags.NotEditable )
 				return;
 
-			// These components will be upgraded and be destroyed in the process
 			if( obj is Text || obj is InputField || obj is Dropdown || obj is TextMesh )
+			{
+				// Copy the component's properties if it belongs to a prefab instance and it's modified because otherwise, all the modifications will
+				// be lost after upgrading the prefab asset since it will destroy this modified legacy component.
+				// 
+				// It might seem strange that we're also copying properties of InputField and Dropdown components that don't belong to prefab instances.
+				// Indeed, this does result in those components being processed twice. However, we must do this because those components have references
+				// to Text components and if their referenced Text is upgraded before they themselves are upgraded, then these references are lost. An
+				// example to this is an InputField which isn't a prefab instance by itself but its "Text Component" is. Since that "Text Component"s
+				// prefab asset will be upgraded before the InputField, the reference will be lost unless we copy the InputField's properties here
+#if UNITY_2018_3_OR_NEWER
+				Component prefabComponent = PrefabUtility.GetCorrespondingObjectFromSource( (Component) obj );
+#else
+				Component prefabComponent = (Component) PrefabUtility.GetPrefabParent( (Component) obj );
+#endif
+				if( ( !prefabComponent && ( obj is InputField || obj is Dropdown ) ) || ( prefabComponent && WillUpgradeObject( prefabComponent ) && ComponentHasAnyPrefabInstanceModifications( obj ) ) )
+				{
+					if( obj is Text )
+						modifiedTextPrefabInstances.Add( CopyTextProperties( (Text) obj ) );
+					else if( obj is InputField )
+						modifiedInputFieldPrefabInstances.Add( CopyInputFieldProperties( (InputField) obj ) );
+					else if( obj is Dropdown )
+						modifiedDropdownPrefabInstances.Add( CopyDropdownProperties( (Dropdown) obj ) );
+					else if( obj is TextMesh )
+					{
+						TextMeshProperties textMeshProperties = CopyTextMeshProperties( (TextMesh) obj );
+
+						if( prefabComponent )
+						{
+							// characterSize and offsetZ values aren't present in TextMesh's TMP variant and these values affect the TMP variant's RectTransform.
+							// We need to make sure that only the difference between this TextMesh and the prefab TextMesh are reflected to these values
+							textMeshProperties.characterSize /= ( (TextMesh) prefabComponent ).characterSize;
+							textMeshProperties.offsetZ -= ( (TextMesh) prefabComponent ).offsetZ;
+						}
+
+						modifiedTextMeshPrefabInstances.Add( textMeshProperties );
+					}
+				}
+
 				return;
+			}
 
 			if( obj is Transform )
 				CollectRemovedComponentsFromPrefabInstance( (Transform) obj );
@@ -324,7 +372,7 @@ namespace TextToTMPNamespace
 						}
 						else if( value is Text )
 						{
-							if( ShouldCollectReference( value ) )
+							if( WillUpgradeObject( value ) )
 							{
 								propertyPaths.Add( iterator.propertyPath );
 								targets.Add( ( (Text) value ).gameObject );
@@ -334,7 +382,7 @@ namespace TextToTMPNamespace
 						}
 						else if( value is InputField )
 						{
-							if( ShouldCollectReference( value ) )
+							if( WillUpgradeObject( value ) )
 							{
 								propertyPaths.Add( iterator.propertyPath );
 								targets.Add( ( (InputField) value ).gameObject );
@@ -344,7 +392,7 @@ namespace TextToTMPNamespace
 						}
 						else if( value is Dropdown )
 						{
-							if( ShouldCollectReference( value ) )
+							if( WillUpgradeObject( value ) )
 							{
 								propertyPaths.Add( iterator.propertyPath );
 								targets.Add( ( (Dropdown) value ).gameObject );
@@ -354,7 +402,7 @@ namespace TextToTMPNamespace
 						}
 						else if( value is TextMesh )
 						{
-							if( ShouldCollectReference( value ) )
+							if( WillUpgradeObject( value ) )
 							{
 								propertyPaths.Add( iterator.propertyPath );
 								targets.Add( ( (TextMesh) value ).gameObject );
@@ -427,7 +475,7 @@ namespace TextToTMPNamespace
 			}
 		}
 
-		private bool ShouldCollectReference( Object target )
+		private bool WillUpgradeObject( Object target )
 		{
 			string assetPath = AssetDatabase.GetAssetOrScenePath( target );
 			return !string.IsNullOrEmpty( assetPath ) && ( assetsToUpgrade.Contains( assetPath ) || scenesToUpgrade.Contains( assetPath ) );
@@ -456,7 +504,7 @@ namespace TextToTMPNamespace
 		// If a reference became null during the upgrade process, this functions tries to restore that reference
 		private Object ConvertReferencePathToObject( string referencePath, Type referenceType )
 		{
-			stringBuilder.Append( "Reference to " ).Append( referencePath ).AppendLine( " was lost during the upgrade. Attempting to restore it." );
+			stringBuilder.Append( "Reference to " ).Append( referencePath.Replace( REFERENCE_PATH_SEPARATOR, " -> " ) ).AppendLine( " was lost during the upgrade. Attempting to restore it." );
 
 			if( string.IsNullOrEmpty( referencePath ) )
 			{

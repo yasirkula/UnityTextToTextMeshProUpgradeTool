@@ -36,6 +36,9 @@ Before proceeding, **you are strongly recommended to backup your project**; just
   - **Step 2/3: Upgrading Components:** Decide which prefabs/Scenes should be upgraded; e.g. *Text* components in those prefabs/Scenes will be upgraded to *TextMeshProUGUI* components
   - **Step 3/3: Reconnecting References:** Decide whether or not the references to the upgraded components should be restored; e.g. if a public variable was referencing an upgraded *Text* component, it will now reference the corresponding *TextMeshProUGUI* component
 
+## KNOWN LIMITATIONS
+
+- If an InputField or Dropdown prefab instance's UnityEvent is modified (i.e. it's different from the prefab asset), that modification can't be restored after the upgrade process on Unity 2019.2 or earlier if a script was modified during the upgrade process
 
 ## EXAMPLES
 

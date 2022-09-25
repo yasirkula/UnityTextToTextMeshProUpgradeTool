@@ -1,10 +1,12 @@
-= Text to TextMesh Pro Upgrade Tool (v1.0.2) =
+= Text to TextMesh Pro Upgrade Tool (v1.1.0) =
 
 Online documentation available at: https://github.com/yasirkula/UnityTextToTextMeshProUpgradeTool
 E-mail: yasirkula@gmail.com
 
+
 1. ABOUT
 This asset helps you upgrade the Text, InputField, Dropdown and TextMesh objects in your projects to their TextMesh Pro variants. It also upgrades the scripts so that e.g. Text variables in those scripts become TMP_Text variables. Then, it reconnects the references to the upgraded components (e.g. if a public variable was referencing an upgraded Text component, it will now reference the corresponding TextMeshProUGUI component).
+
 
 2. HOW TO
 Before proceeding, you are strongly recommended to backup your project; just in case.
@@ -17,5 +19,10 @@ Before proceeding, you are strongly recommended to backup your project; just in 
   - "Step 2/3: Upgrading Components": Decide which prefabs/Scenes should be upgraded; e.g. Text components in those prefabs/Scenes will be upgraded to TextMeshProUGUI components
   - "Step 3/3: Reconnecting References": Decide whether or not the references to the upgraded components should be restored; e.g. if a public variable was referencing an upgraded Text component, it will now reference the corresponding TextMeshProUGUI component
 
-3. EXAMPLES
+
+3. KNOWN LIMITATIONS
+- If an InputField or Dropdown prefab instance's UnityEvent is modified (i.e. it's different from the prefab asset), that modification can't be restored after the upgrade process on Unity 2019.2 or earlier if a script was modified during the upgrade process
+
+
+4. EXAMPLES
 Please see: https://github.com/yasirkula/UnityTextToTextMeshProUpgradeTool#examples
