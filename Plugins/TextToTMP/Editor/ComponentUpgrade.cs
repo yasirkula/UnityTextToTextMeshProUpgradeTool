@@ -623,7 +623,7 @@ namespace TextToTMPNamespace
 
 					// RectMask2D.padding is reportedly added in Unity 2019.4.14: https://forum.unity.com/threads/2-1-4-does-not-contain-a-definition-for-padding.1064537/
 #if UNITY_2019_4_OR_NEWER && !UNITY_2019_4_1 && !UNITY_2019_4_2 && !UNITY_2019_4_3 && !UNITY_2019_4_4 && !UNITY_2019_4_5 && !UNITY_2019_4_6 && !UNITY_2019_4_7 && !UNITY_2019_4_8 && !UNITY_2019_4_9 && !UNITY_2019_4_10 && !UNITY_2019_4_11 && !UNITY_2019_4_12 && !UNITY_2019_4_13
-					viewport.GetComponent<RectMask2D>().padding = new Vector4( -8f, -5f, -8f, -5f );
+					viewport.GetComponent<RectMask2D>().padding = new Vector4( 2f - viewport.offsetMin.x, 1f - viewport.offsetMin.y, 2f + viewport.offsetMax.x, 2f + viewport.offsetMax.y );
 #endif
 
 #if UNITY_2018_3_OR_NEWER
