@@ -8,7 +8,7 @@
 
 **Discord:** https://discord.gg/UJJt549AaV
 
-**[Support the Developer ☕](https://yasirkula.itch.io/unity3d)**
+**[GitHub Sponsors ☕](https://github.com/sponsors/yasirkula)**
 
 This asset helps you upgrade the **Text**, **InputField**, **Dropdown** and **TextMesh** objects in your projects to their **TextMesh Pro** variants. It also upgrades the scripts so that e.g. `Text` variables in those scripts become `TMP_Text` variables. Then, it reconnects the references to the upgraded components (e.g. if a public variable was referencing an upgraded *Text* component, it will now reference the corresponding *TextMeshProUGUI* component).
 
