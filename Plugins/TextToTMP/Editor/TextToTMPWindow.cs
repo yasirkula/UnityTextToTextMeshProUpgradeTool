@@ -9,7 +9,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
-#if UNITY_2018_3_OR_NEWER
+#if UNITY_2018_3_OR_NEWER && !UNITY_2021_2_OR_NEWER
 using PrefabStage = UnityEditor.Experimental.SceneManagement.PrefabStage;
 using PrefabStageUtility = UnityEditor.Experimental.SceneManagement.PrefabStageUtility;
 #endif
