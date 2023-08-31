@@ -2,7 +2,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEditor;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
@@ -217,9 +216,9 @@ namespace TextToTMPNamespace
 
 		private bool AreScenesSaved()
 		{
-			for( int i = 0; i < EditorSceneManager.loadedSceneCount; i++ )
+			for( int i = 0; i < SceneManager.sceneCount; i++ )
 			{
-				Scene scene = EditorSceneManager.GetSceneAt( i );
+				Scene scene = SceneManager.GetSceneAt( i );
 				if( scene.isDirty || string.IsNullOrEmpty( scene.path ) )
 					return false;
 			}
