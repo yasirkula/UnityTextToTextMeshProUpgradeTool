@@ -60,12 +60,45 @@ namespace TextToTMPNamespace
 				}
 
 #if UNITY_2018_3_OR_NEWER
-				// Upgrade base prefabs before their variant prefabs so that changes to the base prefabs are reflected to their
+				// Upgrade nested prefabs before their parent prefabs and base prefabs before their variant prefabs so that changes to the base prefabs are reflected to their
 				// variant prefabs before we start upgrading those variant prefabs
 				if( prefabCyclicReferenceCheckerMethod == null )
 					prefabCyclicReferenceCheckerMethod = typeof( PrefabUtility ).GetMethod( "CheckIfAddingPrefabWouldResultInCyclicNesting", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static );
+				
+				Dictionary<GameObject, HashSet<GameObject>> prefabDependencies = new Dictionary<GameObject, HashSet<GameObject>>();
+				foreach ( var prefab in prefabsToUpgrade )
+				{
+					prefabDependencies[prefab] = new HashSet<GameObject>();
+				}
 
-				prefabsToUpgrade.Sort( ( prefab1, prefab2 ) => (bool) prefabCyclicReferenceCheckerMethod.Invoke( null, new object[] { prefab1, prefab2 } ) ? -1 : 1 );
+				// For each prefab find all the prefabs that must be upgraded before it
+				foreach ( GameObject prefab1 in prefabsToUpgrade )
+				{
+					foreach ( GameObject prefab2 in prefabsToUpgrade )
+					{
+						if ( prefab1 == prefab2 )
+							continue;
+						
+						bool prefab1MustBeUpgradedBeforePrefab2 = (bool) prefabCyclicReferenceCheckerMethod.Invoke( null, new object[] { prefab1, prefab2 } );
+						if ( prefab1MustBeUpgradedBeforePrefab2 )
+						{
+							// prefab1 is nested or sub-nested in prefab2
+							// or prefab1 is the base prefab of prefab2
+							// or prefab1 is nested or sub-nested in the base prefab of prefab2
+							// etc.
+							prefabDependencies[ prefab2 ].Add( prefab1 );
+						}
+					}
+				}
+
+				// Sort the prefabs by the number of prefabs that must be upgraded before them
+				// This will ensure that all the prefabs are upgraded only after their nested/base prefabs
+				prefabsToUpgrade.Sort( ( prefab1, prefab2 ) =>
+				{
+					int prefab1DependencyCount = prefabDependencies[ prefab1 ].Count;
+					int prefab2DependencyCount = prefabDependencies[ prefab2 ].Count;
+					return prefab1DependencyCount.CompareTo( prefab2DependencyCount );
+				});
 #endif
 
 				foreach( GameObject prefab in prefabsToUpgrade )
