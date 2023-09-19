@@ -10,6 +10,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
+using Random = UnityEngine.Random;
 
 namespace TextToTMPNamespace
 {
@@ -64,41 +65,28 @@ namespace TextToTMPNamespace
 				// variant prefabs before we start upgrading those variant prefabs
 				if( prefabCyclicReferenceCheckerMethod == null )
 					prefabCyclicReferenceCheckerMethod = typeof( PrefabUtility ).GetMethod( "CheckIfAddingPrefabWouldResultInCyclicNesting", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static );
-				
-				Dictionary<GameObject, HashSet<GameObject>> prefabDependencies = new Dictionary<GameObject, HashSet<GameObject>>();
-				foreach ( var prefab in prefabsToUpgrade )
-				{
-					prefabDependencies[prefab] = new HashSet<GameObject>();
-				}
 
-				// For each prefab find all the prefabs that must be upgraded before it
-				foreach ( GameObject prefab1 in prefabsToUpgrade )
+				// Selection Sort
+				for ( int i = 0; i < prefabsToUpgrade.Count - 1; i++ )
 				{
-					foreach ( GameObject prefab2 in prefabsToUpgrade )
+					int swapIndex = i;
+					
+					for ( int j = i + 1; j < prefabsToUpgrade.Count; j++ )
 					{
-						if ( prefab1 == prefab2 )
-							continue;
+						GameObject prefab1 = prefabsToUpgrade[ j ];
+                        GameObject prefab2 = prefabsToUpgrade[ swapIndex ];
 						
 						bool prefab1MustBeUpgradedBeforePrefab2 = (bool) prefabCyclicReferenceCheckerMethod.Invoke( null, new object[] { prefab1, prefab2 } );
 						if ( prefab1MustBeUpgradedBeforePrefab2 )
 						{
-							// prefab1 is nested or sub-nested in prefab2
-							// or prefab1 is the base prefab of prefab2
-							// or prefab1 is nested or sub-nested in the base prefab of prefab2
-							// etc.
-							prefabDependencies[ prefab2 ].Add( prefab1 );
+							swapIndex = j;
 						}
 					}
-				}
 
-				// Sort the prefabs by the number of prefabs that must be upgraded before them
-				// This will ensure that all the prefabs are upgraded only after their nested/base prefabs
-				prefabsToUpgrade.Sort( ( prefab1, prefab2 ) =>
-				{
-					int prefab1DependencyCount = prefabDependencies[ prefab1 ].Count;
-					int prefab2DependencyCount = prefabDependencies[ prefab2 ].Count;
-					return prefab1DependencyCount.CompareTo( prefab2DependencyCount );
-				});
+					GameObject temp = prefabsToUpgrade[ swapIndex ];
+					prefabsToUpgrade[ swapIndex ] = prefabsToUpgrade[ i ];
+					prefabsToUpgrade[ i ] = temp;
+				}
 #endif
 
 				foreach( GameObject prefab in prefabsToUpgrade )
