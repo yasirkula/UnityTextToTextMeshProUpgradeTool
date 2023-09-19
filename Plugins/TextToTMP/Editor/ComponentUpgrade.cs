@@ -9,8 +9,6 @@ using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using Object = UnityEngine.Object;
-using Random = UnityEngine.Random;
 
 namespace TextToTMPNamespace
 {
