@@ -66,36 +66,7 @@ anchoredPanelGUIStyle = new GUIStyle( "box" )
 
 ### Upgrading [SimpleFileBrowser](https://github.com/yasirkula/UnitySimpleFileBrowser)
 
-Add `Plugins/SimpleFileBrowser` folder to the **Assets & Scenes To Upgrade** list and then upgrade everything. While upgrading the scripts, *FileBrowser.cs* will throw a compiler error. Fix it as follows before proceeding to upgrade the components:
-
-```csharp
-// Credit: https://forum.unity.com/threads/calculate-width-of-a-text-before-without-assigning-it-to-a-tmp-object.758867/#post-5057900
-private int CalculateLengthOfDropdownText( string str )
-{
-	float totalLength = 0;
-
-	TMPro.TMP_FontAsset myFont = filterItemTemplate.font;
-
-	float pointSizeScale = filterItemTemplate.fontSize / ( myFont.faceInfo.pointSize * myFont.faceInfo.scale );
-	float emScale = filterItemTemplate.fontSize * 0.01f;
-
-	float styleSpacingAdjustment = ( filterItemTemplate.fontStyle & TMPro.FontStyles.Bold ) == TMPro.FontStyles.Bold ? myFont.boldSpacing : 0;
-	float normalSpacingAdjustment = myFont.normalSpacingOffset;
-
-	for( int i = 0; i < str.Length; i++ )
-	{
-		TMPro.TMP_Character character;
-		if( filterItemTemplate.font.characterLookupTable.TryGetValue( str[i], out character ) )
-			totalLength += character.glyph.metrics.horizontalAdvance * pointSizeScale + ( styleSpacingAdjustment + normalSpacingAdjustment ) * emScale;
-		else
-			totalLength += 5;
-	}
-
-	return (int) totalLength + 10;
-}
-```
-
-**What happened:** Previously, we were using `Font.RequestCharactersInTexture` and `Font.GetCharacterInfo` but `TMP_FontAsset` doesn't have these functions, so we had to upgrade this function manually.
+Add `Plugins/SimpleFileBrowser` folder to the **Assets & Scenes To Upgrade** list and then upgrade everything. No manual intervention necessary.
 
 ### Upgrading [ImageCropper](https://github.com/yasirkula/UnityImageCropper)
 
