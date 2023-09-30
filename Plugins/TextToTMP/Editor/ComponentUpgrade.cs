@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using TMPro;
@@ -9,6 +9,7 @@ using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace TextToTMPNamespace
 {
@@ -59,31 +60,27 @@ namespace TextToTMPNamespace
 				}
 
 #if UNITY_2018_3_OR_NEWER
-				// Upgrade nested prefabs before their parent prefabs and base prefabs before their variant prefabs so that changes to the base prefabs are reflected to their
-				// variant prefabs before we start upgrading those variant prefabs
+				// Upgrade nested prefabs before their parent prefabs and base prefabs before their variant prefabs so that changes to
+				// the base prefabs are reflected to their variant prefabs before we start upgrading those variant prefabs
 				if( prefabCyclicReferenceCheckerMethod == null )
 					prefabCyclicReferenceCheckerMethod = typeof( PrefabUtility ).GetMethod( "CheckIfAddingPrefabWouldResultInCyclicNesting", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static );
 
-				// Selection Sort
-				for ( int i = 0; i < prefabsToUpgrade.Count - 1; i++ )
+				// Using selection sort instead of List.Sort because the latter requires a proper sort comparison function whereas ours
+				// is only transitive (which is sufficient for a partially ordered result using selection sort).
+				// About sort comparison functions: https://devblogs.microsoft.com/oldnewthing/20031023-00/?p=42063
+				for( int i = 0; i < prefabsToUpgrade.Count - 1; i++ )
 				{
 					int swapIndex = i;
-					
-					for ( int j = i + 1; j < prefabsToUpgrade.Count; j++ )
+					for( int j = i + 1; j < prefabsToUpgrade.Count; j++ )
 					{
-						GameObject prefab1 = prefabsToUpgrade[ j ];
-                        GameObject prefab2 = prefabsToUpgrade[ swapIndex ];
-						
-						bool prefab1MustBeUpgradedBeforePrefab2 = (bool) prefabCyclicReferenceCheckerMethod.Invoke( null, new object[] { prefab1, prefab2 } );
-						if ( prefab1MustBeUpgradedBeforePrefab2 )
-						{
+						// If the prefab at index j is a nested/base prefab of the one at swapIndex, upgrade it first
+						if( (bool) prefabCyclicReferenceCheckerMethod.Invoke( null, new object[] { prefabsToUpgrade[j], prefabsToUpgrade[swapIndex] } ) )
 							swapIndex = j;
-						}
 					}
 
-					GameObject temp = prefabsToUpgrade[ swapIndex ];
-					prefabsToUpgrade[ swapIndex ] = prefabsToUpgrade[ i ];
-					prefabsToUpgrade[ i ] = temp;
+					GameObject temp = prefabsToUpgrade[swapIndex];
+					prefabsToUpgrade[swapIndex] = prefabsToUpgrade[i];
+					prefabsToUpgrade[i] = temp;
 				}
 #endif
 
