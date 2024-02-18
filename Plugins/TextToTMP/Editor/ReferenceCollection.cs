@@ -149,7 +149,7 @@ namespace TextToTMPNamespace
 						reference.source = ConvertReferencePathToObject( reference.sourcePath, Type.GetType( reference.sourceType ) );
 						if( !reference.source )
 						{
-							stringBuilder.Append( "<b>Pending reference source is no longer valid: " ).Append( reference.sourcePath ).AppendLine( "</b>" );
+							stringBuilder.Append( "<b>Pending reference source is no longer valid: " ).Append( reference.sourcePath.Replace( REFERENCE_PATH_SEPARATOR, " -> " ) ).AppendLine( "</b>" );
 							continue;
 						}
 					}
@@ -164,7 +164,7 @@ namespace TextToTMPNamespace
 							target = ConvertReferencePathToObject( reference.targetPaths[j], reference.targetTypes[j] == PendingReferenceUpdate.TargetType.Font ? typeof( Font ) : typeof( GameObject ) );
 							if( !target )
 							{
-								stringBuilder.Append( "<b>Pending reference target (at path " ).Append( reference.targetPaths[j] ).Append( ") is no longer valid for: " ).Append( reference.source.name ).Append( " (" ).Append( reference.source.GetType().Name ).Append( ") -> " ).Append( reference.propertyPaths[j] ).AppendLine( "</b>" );
+								stringBuilder.Append( "<b>Pending reference target (at path " ).Append( reference.targetPaths[j].Replace( REFERENCE_PATH_SEPARATOR, " -> " ) ).Append( ") is no longer valid for: " ).Append( reference.source.name ).Append( " (" ).Append( reference.source.GetType().Name ).Append( ") -> " ).Append( reference.propertyPaths[j] ).AppendLine( "</b>" );
 								continue;
 							}
 						}
