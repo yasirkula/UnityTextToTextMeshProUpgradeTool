@@ -79,14 +79,8 @@ namespace TextToTMPNamespace
 			public string text;
 
 			// UnityEvents
-#if UNITY_2019_3_OR_NEWER
-			[SerializeReference]
-#endif
-			public object onEndEdit;
-#if UNITY_2019_3_OR_NEWER
-			[SerializeReference]
-#endif
-			public object onValueChanged;
+			public UnityEventProperties onEndEdit;
+			public UnityEventProperties onValueChanged;
 		}
 
 		[Serializable]
@@ -105,10 +99,7 @@ namespace TextToTMPNamespace
 			public int value;
 
 			// UnityEvents
-#if UNITY_2019_3_OR_NEWER
-			[SerializeReference]
-#endif
-			public object onValueChanged;
+			public UnityEventProperties onValueChanged;
 		}
 
 		[Serializable]
@@ -146,6 +137,19 @@ namespace TextToTMPNamespace
 				selectable.targetGraphic = targetGraphicGameObject ? targetGraphicGameObject.GetComponent<Graphic>() : null;
 				selectable.transition = transition;
 			}
+		}
+
+		[Serializable]
+		private class UnityEventProperties
+		{
+			public enum TargetType { None, Text, InputField, Dropdown, TextMesh }
+
+#if UNITY_2019_3_OR_NEWER
+			[SerializeReference]
+#endif
+			public object persistentCalls;
+			public TargetType[] targetTypes;
+			public GameObject[] targetGameObjects;
 		}
 	}
 }

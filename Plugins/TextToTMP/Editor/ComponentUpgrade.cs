@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using TMPro;
@@ -24,7 +25,7 @@ namespace TextToTMPNamespace
 		private readonly HashSet<string> upgradedPrefabs = new HashSet<string>();
 		private readonly List<PrefabInstancesRemovedComponent> upgradedComponentsToRemoveInPrefabInstances = new List<PrefabInstancesRemovedComponent>();
 
-		private FieldInfo unityEventPersistentCallsField;
+		private FieldInfo unityEventPersistentCallsField, unityEventPersistentCallsListField, unityEventPersistentCallTargetField;
 #if UNITY_2018_3_OR_NEWER
 		private MethodInfo prefabCyclicReferenceCheckerMethod;
 #endif
@@ -824,30 +825,91 @@ namespace TextToTMPNamespace
 			return verticalOverflow == VerticalWrapMode.Overflow ? TextOverflowModes.Overflow : TextOverflowModes.Truncate;
 		}
 
-		private object CopyUnityEvent( UnityEventBase target )
+		private UnityEventProperties CopyUnityEvent( UnityEventBase target )
 		{
+			BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
 			if( unityEventPersistentCallsField == null )
 			{
-				unityEventPersistentCallsField = typeof( UnityEventBase ).GetField( "m_PersistentCalls", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance );
-				if( unityEventPersistentCallsField == null )
+				Type type = typeof( UnityEventBase );
+				unityEventPersistentCallsField = type.GetField( "m_PersistentCalls", flags ) ?? type.GetField( "m_PersistentListeners", flags );
+				if( unityEventPersistentCallsField != null )
 				{
-					unityEventPersistentCallsField = typeof( UnityEventBase ).GetField( "m_PersistentListeners", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance );
-
-					if( unityEventPersistentCallsField == null )
+					type = unityEventPersistentCallsField.FieldType;
+					unityEventPersistentCallsListField = type.GetField( "m_Calls", flags ) ?? type.GetField( "m_Listeners", flags );
+					if( unityEventPersistentCallsListField != null )
 					{
-						stringBuilder.AppendLine( "<b>Couldn't copy UnityEvent</b>" );
-						return null;
+						type = unityEventPersistentCallsListField.FieldType.GetGenericArguments()[0];
+						unityEventPersistentCallTargetField = type.GetField( "m_Target", flags ) ?? type.GetField( "instance", flags );
 					}
+				}
+
+				if( unityEventPersistentCallTargetField == null )
+				{
+					stringBuilder.AppendLine( "<b>Couldn't copy UnityEvent</b>" );
+					return null;
 				}
 			}
 
-			return unityEventPersistentCallsField.GetValue( target );
+			// Duplicate the UnityEvent's persistentCalls because the original value is modified by Unity during the upgrade process and it affects this plugin
+			object persistentCalls = Activator.CreateInstance( unityEventPersistentCallsField.FieldType );
+			unityEventPersistentCallsListField.SetValue( persistentCalls, Activator.CreateInstance( unityEventPersistentCallsListField.FieldType, unityEventPersistentCallsListField.GetValue( unityEventPersistentCallsField.GetValue( target ) ) ) );
+
+			// If a listener's target object will be upgraded, its reference will be lost. In that case, keep track of the target GameObject to be able to restore the reference to the upgraded component later on
+			UnityEventProperties.TargetType[] targetTypes = new UnityEventProperties.TargetType[target.GetPersistentEventCount()];
+			GameObject[] targetGameObjects = new GameObject[target.GetPersistentEventCount()];
+			for( int i = 0; i < targetTypes.Length; i++ )
+			{
+				Component component = target.GetPersistentTarget( i ) as Component;
+				if( !component )
+					continue;
+
+				if( component is Text && WillUpgradeObject( component ) )
+					targetTypes[i] = UnityEventProperties.TargetType.Text;
+				else if( component is InputField && WillUpgradeObject( component ) )
+					targetTypes[i] = UnityEventProperties.TargetType.InputField;
+				else if( component is Dropdown && WillUpgradeObject( component ) )
+					targetTypes[i] = UnityEventProperties.TargetType.Dropdown;
+				else if( component is TextMesh && WillUpgradeObject( component ) )
+					targetTypes[i] = UnityEventProperties.TargetType.TextMesh;
+
+				if( targetTypes[i] != UnityEventProperties.TargetType.None )
+					targetGameObjects[i] = component.gameObject;
+			}
+
+			return new UnityEventProperties()
+			{
+				persistentCalls = persistentCalls,
+				targetTypes = targetTypes,
+				targetGameObjects = targetGameObjects,
+			};
 		}
 
-		private void PasteUnityEvent( UnityEventBase target, object unityEvent )
+		private void PasteUnityEvent( UnityEventBase target, UnityEventProperties unityEventProperties )
 		{
-			if( unityEvent != null )
-				unityEventPersistentCallsField.SetValue( target, unityEvent );
+			if( unityEventProperties != null && unityEventProperties.persistentCalls != null )
+			{
+				IList persistentCallsList = (IList) unityEventPersistentCallsListField.GetValue( unityEventProperties.persistentCalls );
+				for( int i = 0; i < unityEventProperties.targetTypes.Length; i++ )
+				{
+					GameObject gameObject = unityEventProperties.targetGameObjects[i];
+					if( !gameObject )
+						continue;
+
+					Component component = null;
+					switch( unityEventProperties.targetTypes[i] )
+					{
+						case UnityEventProperties.TargetType.Text: component = gameObject.GetComponent<TextMeshProUGUI>(); break;
+						case UnityEventProperties.TargetType.InputField: component = gameObject.GetComponent<TMP_InputField>(); break;
+						case UnityEventProperties.TargetType.Dropdown: component = gameObject.GetComponent<TMP_Dropdown>(); break;
+						case UnityEventProperties.TargetType.TextMesh: component = gameObject.GetComponent<TextMeshPro>(); break;
+					}
+
+					if( component )
+						unityEventPersistentCallTargetField.SetValue( persistentCallsList[i], component );
+				}
+
+				unityEventPersistentCallsField.SetValue( target, unityEventProperties.persistentCalls );
+			}
 			else
 				stringBuilder.AppendLine( "<b>Couldn't paste UnityEvent because it became null (it can happen on Unity 2019.2 or earlier if a script was modified during the upgrade process)</b>" );
 		}
