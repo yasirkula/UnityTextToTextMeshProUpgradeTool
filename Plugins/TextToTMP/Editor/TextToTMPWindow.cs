@@ -151,6 +151,12 @@ namespace TextToTMPNamespace
 				return;
 			}
 
+			if( EditorApplication.isCompiling )
+			{
+				EditorGUILayout.HelpBox( "Waiting for Unity to finish compiling the scripts", MessageType.Info );
+				return;
+			}
+
 			if( !AreScenesSaved() )
 			{
 				EditorGUILayout.HelpBox( "Text To TMP can't work while there are unsaved Scenes.", MessageType.Error );
@@ -394,15 +400,9 @@ namespace TextToTMPNamespace
 			else if( stage == UpgradeStage.PendingUpgradeScriptsCompletion )
 			{
 				GUILayout.Box( "Step 1/3: Upgrading Scripts", GL_EXPAND_WIDTH );
-
-				if( EditorApplication.isCompiling )
-					GUILayout.Label( "Waiting for Unity to finish compiling the scripts...", boldWordWrappedLabel );
-				else
-					GUILayout.Label( FIX_COMPILATION_ERRORS_WARNING, boldWordWrappedLabel );
-
+				GUILayout.Label( FIX_COMPILATION_ERRORS_WARNING, boldWordWrappedLabel );
 				EditorGUILayout.Space();
 
-				GUI.enabled = !EditorApplication.isCompiling;
 				if( GUILayout.Button( "NEXT STEP", GL_HEIGHT_30 ) && EditorUtility.DisplayDialog( "Warning", FIX_COMPILATION_ERRORS_WARNING, "Got it!", "Cancel" ) )
 					SwitchStage( UpgradeStage.UpgradeComponents );
 

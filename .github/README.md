@@ -38,6 +38,7 @@ Before proceeding, **you are strongly recommended to backup your project**; just
 
 ## KNOWN LIMITATIONS
 
+- `InputField.onSubmit` event isn't serialized on TMP_InputField so in order not to lose references to its listeners, [TMP_InputFieldOnSubmitEvent](https://github.com/yasirkula/UnityTextToTextMeshProUpgradeTool/blob/master/Plugins/TextToTMP/Other/TMP_InputFieldOnSubmitEvent.cs) component will be attached to the upgraded InputField objects with non-empty onSubmit events automatically. It means that if you delete this plugin after the upgrade process, all instances of that component (if any) will be broken. However, you can duplicate the TMP_InputFieldOnSubmitEvent script, delete the plugin, and then change the duplicated script's GUID to the [original script's GUID](https://github.com/yasirkula/UnityTextToTextMeshProUpgradeTool/blob/master/Plugins/TextToTMP/Other/TMP_InputFieldOnSubmitEvent.cs.meta) to restore those references, if you wish
 - If an InputField or Dropdown prefab instance's UnityEvent is modified (i.e. it's different from the prefab asset), that modification can't be restored after the upgrade process on Unity 2019.2 or earlier if a script was modified during the upgrade process
 
 ## EXAMPLES

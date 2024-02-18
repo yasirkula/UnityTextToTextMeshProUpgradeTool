@@ -26,6 +26,7 @@ namespace TextToTMPNamespace
 		private readonly List<PrefabInstancesRemovedComponent> upgradedComponentsToRemoveInPrefabInstances = new List<PrefabInstancesRemovedComponent>();
 
 		private FieldInfo unityEventPersistentCallsField, unityEventPersistentCallsListField, unityEventPersistentCallTargetField;
+		private FieldInfo inputFieldOnSubmitField;
 #if UNITY_2018_3_OR_NEWER
 		private MethodInfo prefabCyclicReferenceCheckerMethod;
 #endif
@@ -459,6 +460,9 @@ namespace TextToTMPNamespace
 			Color? caretColor = null;
 			try { caretColor = inputField.caretColor; } catch { }
 
+			if( inputFieldOnSubmitField == null )
+				inputFieldOnSubmitField = typeof( InputField ).GetField( "m_OnSubmit", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance );
+
 			return new InputFieldProperties()
 			{
 				gameObject = inputField.gameObject,
@@ -488,6 +492,7 @@ namespace TextToTMPNamespace
 
 				// Copy UnityEvents
 				onEndEdit = CopyUnityEvent( inputField.onEndEdit ),
+				onSubmit = ( inputFieldOnSubmitField != null ) ? CopyUnityEvent( inputFieldOnSubmitField.GetValue( inputField ) as UnityEventBase ) : null,
 #if UNITY_5_3_OR_NEWER
 				onValueChanged = CopyUnityEvent( inputField.onValueChanged )
 #else
@@ -525,6 +530,24 @@ namespace TextToTMPNamespace
 			// Paste UnityEvents
 			PasteUnityEvent( tmp.onEndEdit, properties.onEndEdit );
 			PasteUnityEvent( tmp.onValueChanged, properties.onValueChanged );
+
+			/// <see cref="InputField.onSubmit"/> event isn't serialized in <see cref="TMP_InputField.onSubmit"/>, so its callbacks can't be copied directly.
+			/// A bridge component (<see cref="TMP_InputFieldOnSubmitEvent"/>) is used to serialize that event on TMPro.
+			if( properties.onSubmit != null && properties.onSubmit.persistentCalls != null )
+			{
+				stringBuilder.Append( "Upgrading InputField.OnSubmit event using " ).Append( typeof( TMP_InputFieldOnSubmitEvent ).Name ).Append( " component: " ).AppendLine( GetPathOfObject( tmp.transform ) );
+				TMP_InputFieldOnSubmitEvent bridgeComponent = tmp.GetComponent<TMP_InputFieldOnSubmitEvent>();
+				if( bridgeComponent == null && ( (IList) unityEventPersistentCallsListField.GetValue( properties.onSubmit.persistentCalls ) ).Count > 0 )
+					bridgeComponent = tmp.gameObject.AddComponent<TMP_InputFieldOnSubmitEvent>();
+
+				if( bridgeComponent != null )
+				{
+					PasteUnityEvent( bridgeComponent.onSubmit, properties.onSubmit );
+#if UNITY_2018_3_OR_NEWER
+					PrefabUtility.RecordPrefabInstancePropertyModifications( bridgeComponent );
+#endif
+				}
+			}
 		}
 
 		private TMP_Dropdown UpgradeDropdown( Dropdown dropdown, Dropdown prefabDropdown )

@@ -80,6 +80,7 @@ namespace TextToTMPNamespace
 
 			// UnityEvents
 			public UnityEventProperties onEndEdit;
+			public UnityEventProperties onSubmit;
 			public UnityEventProperties onValueChanged;
 		}
 

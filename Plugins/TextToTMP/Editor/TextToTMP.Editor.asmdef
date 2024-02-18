@@ -1,6 +1,7 @@
 {
     "name": "TextToTMP.Editor",
     "references": [
+        "TextToTMP.Runtime",
         "Unity.TextMeshPro"
     ],
     "optionalUnityReferences": [],
