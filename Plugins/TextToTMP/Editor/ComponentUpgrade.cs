@@ -142,7 +142,7 @@ namespace TextToTMPNamespace
 
 			GameObject[] rootGameObjects = scene.GetRootGameObjects();
 			for( int i = 0; i < rootGameObjects.Length; i++ )
-				UpgradeGameObjectRecursively( rootGameObjects[i].transform, null );
+				UpgradeGameObjectRecursively( rootGameObjects[i], null );
 
 			EditorSceneManager.MarkSceneDirty( scene );
 		}
@@ -193,7 +193,7 @@ namespace TextToTMPNamespace
 
 			try
 			{
-				UpgradeGameObjectRecursively( prefabInstanceRoot.transform, prefab.transform );
+				UpgradeGameObjectRecursively( prefabInstanceRoot, prefab );
 
 
 #if UNITY_2018_3_OR_NEWER
@@ -250,17 +250,20 @@ namespace TextToTMPNamespace
 			AssetDatabase.SaveAssets();
 		}
 
-		private void UpgradeGameObjectRecursively( Transform transform, Transform prefabTransform )
+		/// This function takes GameObject parameters, not Transform parameters (it's tempting to pass Transform instead since it'd make the code simpler but we
+		/// must resist the temptation). That's because the <see cref="UpgradeTextMesh"/> function converts legacy TextMesh's Transform component to RectTransform,
+		/// causing the Transform reference to be lost in the process. However, the GameObject reference lives on.
+		private void UpgradeGameObjectRecursively( GameObject go, GameObject prefab )
 		{
 			try
 			{
-				UpgradeDropdown( transform.GetComponent<Dropdown>(), prefabTransform ? prefabTransform.GetComponent<Dropdown>() : null );
-				TMP_InputField inputField = UpgradeInputField( transform.GetComponent<InputField>(), prefabTransform ? prefabTransform.GetComponent<InputField>() : null, false );
-				UpgradeText( transform.GetComponent<Text>(), prefabTransform ? prefabTransform.GetComponent<Text>() : null );
-				UpgradeTextMesh( transform.GetComponent<TextMesh>(), prefabTransform ? prefabTransform.GetComponent<TextMesh>() : null );
+				UpgradeDropdown( go.GetComponent<Dropdown>(), prefab ? prefab.GetComponent<Dropdown>() : null );
+				TMP_InputField inputField = UpgradeInputField( go.GetComponent<InputField>(), prefab ? prefab.GetComponent<InputField>() : null, false );
+				UpgradeText( go.GetComponent<Text>(), prefab ? prefab.GetComponent<Text>() : null );
+				UpgradeTextMesh( go.GetComponent<TextMesh>(), prefab ? prefab.GetComponent<TextMesh>() : null );
 
-				for( int i = 0; i < transform.childCount; i++ )
-					UpgradeGameObjectRecursively( transform.GetChild( i ), prefabTransform ? prefabTransform.GetChild( i ) : null );
+				for( int i = 0; i < go.transform.childCount; i++ )
+					UpgradeGameObjectRecursively( go.transform.GetChild( i ).gameObject, prefab ? prefab.transform.GetChild( i ).gameObject : null );
 
 				// TMP_InputField objects have an extra Viewport (Text Area) child object, create it if necessary. We're creating that Viewport after traversing
 				// the InputField's children because this operation can change some of those children's parents and while traversing hierarchies, we want
@@ -273,7 +276,7 @@ namespace TextToTMPNamespace
 				if( !e.Data.Contains( "LoggedHierarchy" ) )
 				{
 					e.Data.Add( "LoggedHierarchy", true );
-					Debug.LogError( "Error while upgrading components of: " + GetPathOfObject( transform ), prefabTransform ? prefabTransform.root.gameObject : transform.gameObject );
+					Debug.LogError( "Error while upgrading components of: " + GetPathOfObject( go.transform ), prefab ? prefab.transform.root.gameObject : go );
 				}
 
 				throw;
