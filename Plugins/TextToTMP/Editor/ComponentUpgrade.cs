@@ -347,7 +347,11 @@ namespace TextToTMPNamespace
 			tmp.fontMaterial = properties.fontMaterial;
 			tmp.fontSize = properties.fontSize;
 			tmp.fontStyle = properties.fontStyle;
+#if TMP_3_2_OR_NEWER
+			tmp.textWrappingMode = properties.horizontalWrapMode ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+#else
 			tmp.enableWordWrapping = properties.horizontalWrapMode;
+#endif
 			tmp.lineSpacing = properties.lineSpacing;
 			tmp.raycastTarget = properties.raycastTarget;
 			tmp.richText = properties.supportRichText;
@@ -375,7 +379,11 @@ namespace TextToTMPNamespace
 			// Paste fields
 			PasteTextMeshProperties( tmp, properties );
 
+#if TMP_3_2_OR_NEWER
+			tmp.textWrappingMode = TextWrappingModes.NoWrap;
+#else
 			tmp.enableWordWrapping = false;
+#endif
 			tmp.overflowMode = TextOverflowModes.Overflow;
 			tmp.rectTransform.sizeDelta = Vector2.zero;
 
@@ -756,7 +764,13 @@ namespace TextToTMPNamespace
 
 			List<TMP_Dropdown.OptionData> result = new List<TMP_Dropdown.OptionData>( options.Count );
 			for( int i = 0; i < options.Count; i++ )
+			{
+#if TMP_3_2_OR_NEWER
+				result.Add( new TMP_Dropdown.OptionData( options[i].text, options[i].image, Color.white ) );
+#else
 				result.Add( new TMP_Dropdown.OptionData( options[i].text, options[i].image ) );
+#endif
+			}
 
 			return result;
 		}
