@@ -9,10 +9,6 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using Object = UnityEngine.Object;
-#if UNITY_2018_3_OR_NEWER && !UNITY_2021_2_OR_NEWER
-using PrefabStage = UnityEditor.Experimental.SceneManagement.PrefabStage;
-using PrefabStageUtility = UnityEditor.Experimental.SceneManagement.PrefabStageUtility;
-#endif
 
 namespace TextToTMPNamespace
 {
@@ -163,14 +159,12 @@ namespace TextToTMPNamespace
 				return;
 			}
 
-#if UNITY_2018_3_OR_NEWER
 			PrefabStage openPrefabStage = PrefabStageUtility.GetCurrentPrefabStage();
 			if( openPrefabStage != null && openPrefabStage.stageHandle.IsValid() && openPrefabStage.scene.isDirty )
 			{
 				EditorGUILayout.HelpBox( "Text To TMP can't work while there are unsaved changes in the Prefab stage.", MessageType.Error );
 				return;
 			}
-#endif
 
 			if( boldWordWrappedLabel == null )
 				boldWordWrappedLabel = new GUIStyle( EditorStyles.boldLabel ) { wordWrap = true };
@@ -358,7 +352,6 @@ namespace TextToTMPNamespace
 
 				EditorGUILayout.Space();
 
-#if UNITY_2017_3_OR_NEWER
 				GUILayout.Label( "TextMesh Pro's Assembly Definition File (if exists) will be added to these Assembly Definition Files' 'Assembly Definition References' list:", boldWordWrappedLabel );
 
 				if( assemblyDefinitionFilesToUpgrade.Length > 0 )
@@ -367,18 +360,13 @@ namespace TextToTMPNamespace
 					GUILayout.Label( "<None>" );
 
 				EditorGUILayout.Space();
-#endif
 
 				EditorGUILayout.HelpBox( BACKUP_PROJECT_WARNING, MessageType.Warning );
 				EditorGUILayout.HelpBox( DONT_CLOSE_WINDOW_WARNING, MessageType.Warning );
 
 				EditorGUILayout.Space();
 
-#if UNITY_2017_3_OR_NEWER
 				GUI.enabled = scriptsToUpgrade.EnabledCount > 0 | assemblyDefinitionFilesToUpgrade.EnabledCount > 0;
-#else
-				GUI.enabled = scriptsToUpgrade.EnabledCount > 0;
-#endif
 				if( GUILayout.Button( "UPGRADE SCRIPTS", GL_HEIGHT_30 ) && EditorUtility.DisplayDialog( "Warning", BACKUP_PROJECT_WARNING, "Got it!", "Cancel" ) && EditorUtility.DisplayDialog( "Warning", DONT_CLOSE_WINDOW_WARNING, "Got it!", "Cancel" ) )
 				{
 					AssetDatabase.SaveAssets();
@@ -503,9 +491,7 @@ namespace TextToTMPNamespace
 			assetsToUpgrade.Clear();
 			scenesToUpgrade.Clear();
 			scriptsToUpgrade.Clear();
-#if UNITY_2017_3_OR_NEWER
 			assemblyDefinitionFilesToUpgrade.Clear();
-#endif
 
 			HashSet<string> upgradeTargetsSet = new HashSet<string>();
 			for( int i = 0; i < upgradeTargets.Count; i++ )
@@ -551,10 +537,8 @@ namespace TextToTMPNamespace
 				}
 				if( assetPath.EndsWith( ".cs", StringComparison.OrdinalIgnoreCase ) )
 					AddScriptToUpgrade( assetPath );
-#if UNITY_2017_3_OR_NEWER
 				else if( assetPath.EndsWith( ".asmdef", StringComparison.OrdinalIgnoreCase ) )
 					assemblyDefinitionFilesToUpgrade.Add( assetPath );
-#endif
 				else if( AssetDatabase.LoadAssetAtPath<GameObject>( assetPath ) || AssetDatabase.LoadAssetAtPath<ScriptableObject>( assetPath ) )
 					assetsToUpgrade.Add( assetPath );
 			}

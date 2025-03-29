@@ -145,9 +145,7 @@ namespace TextToTMPNamespace
 		{
 			public enum TargetType { None, Text, InputField, Dropdown, TextMesh }
 
-#if UNITY_2019_3_OR_NEWER
 			[SerializeReference]
-#endif
 			public object persistentCalls;
 			public TargetType[] targetTypes;
 			public GameObject[] targetGameObjects;

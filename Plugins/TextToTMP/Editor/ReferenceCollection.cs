@@ -53,21 +53,6 @@ namespace TextToTMPNamespace
 				}
 			}
 		}
-
-#if !UNITY_2018_3_OR_NEWER
-		// Variable names are the same as PrefabUtility.GetRemovedComponents's returned RemovedComponent class
-		private struct RemovedComponentLegacy
-		{
-			public readonly Component assetComponent;
-			public readonly GameObject containingInstanceGameObject;
-
-			public RemovedComponentLegacy( Component assetComponent, GameObject containingInstanceGameObject )
-			{
-				this.assetComponent = assetComponent;
-				this.containingInstanceGameObject = containingInstanceGameObject;
-			}
-		}
-#endif
 		#endregion
 
 		#region Constants
@@ -89,12 +74,7 @@ namespace TextToTMPNamespace
 
 		private void CollectReferences()
 		{
-#if UNITY_2019_3_OR_NEWER
-			MethodInfo fieldInfoGetterMethod = typeof( Editor ).Assembly.GetType( "UnityEditor.ScriptAttributeUtility" ).GetMethod( "GetFieldInfoAndStaticTypeFromProperty", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static );
-#else
-			MethodInfo fieldInfoGetterMethod = typeof( Editor ).Assembly.GetType( "UnityEditor.ScriptAttributeUtility" ).GetMethod( "GetFieldInfoFromProperty", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static );
-#endif
-			fieldInfoGetter = (FieldInfoGetter) Delegate.CreateDelegate( typeof( FieldInfoGetter ), fieldInfoGetterMethod );
+			fieldInfoGetter = (FieldInfoGetter) Delegate.CreateDelegate( typeof( FieldInfoGetter ), typeof( Editor ).Assembly.GetType( "UnityEditor.ScriptAttributeUtility" ).GetMethod( "GetFieldInfoAndStaticTypeFromProperty", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static ) );
 
 			pendingReferenceUpdates.Clear();
 			modifiedTextPrefabInstances.Clear();
@@ -265,11 +245,7 @@ namespace TextToTMPNamespace
 				// to Text components and if their referenced Text is upgraded before they themselves are upgraded, then these references are lost. An
 				// example to this is an InputField which isn't a prefab instance by itself but its "Text Component" is. Since that "Text Component"s
 				// prefab asset will be upgraded before the InputField, the reference will be lost unless we copy the InputField's properties here
-#if UNITY_2018_3_OR_NEWER
 				Component prefabComponent = PrefabUtility.GetCorrespondingObjectFromSource( (Component) obj );
-#else
-				Component prefabComponent = (Component) PrefabUtility.GetPrefabParent( (Component) obj );
-#endif
 				if( ( !prefabComponent && ( obj is InputField || obj is Dropdown ) ) || ( prefabComponent && WillUpgradeObject( prefabComponent ) && ComponentHasAnyPrefabInstanceModifications( obj ) ) )
 				{
 					if( obj is Text )
@@ -348,11 +324,9 @@ namespace TextToTMPNamespace
 							value = iterator.exposedReferenceValue;
 							enterChildren = false;
 							break;
-#if UNITY_2019_3_OR_NEWER
 						case SerializedPropertyType.ManagedReference:
 							enterChildren = false;
 							break;
-#endif
 						case SerializedPropertyType.Generic:
 							enterChildren = true;
 							break;
@@ -433,18 +407,10 @@ namespace TextToTMPNamespace
 		// removed/destroyed again after they are converted to their TextMesh Pro variants in the source prefab assets
 		private void CollectRemovedComponentsFromPrefabInstance( Transform obj )
 		{
-#if UNITY_2018_3_OR_NEWER
 			if( !PrefabUtility.IsAnyPrefabInstanceRoot( obj.gameObject ) )
-#else
-			if( PrefabUtility.GetPrefabType( obj.gameObject ) != PrefabType.PrefabInstance )
-#endif
 				return;
 
-#if UNITY_2018_3_OR_NEWER
 			foreach( RemovedComponent removedComponent in PrefabUtility.GetRemovedComponents( obj.gameObject ) )
-#else
-			foreach( RemovedComponentLegacy removedComponent in GetRemovedComponentsFromPrefabInstance( obj ) )
-#endif
 			{
 				Component prefabComponent = removedComponent.assetComponent;
 				PrefabInstancesRemovedComponent.ComponentType prefabComponentType;

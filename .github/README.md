@@ -51,6 +51,8 @@ Add `Plugins/RuntimeInspector` folder to the **Assets & Scenes To Upgrade** list
 
 Add `Plugins/IngameDebugConsole` folder to the **Assets & Scenes To Upgrade** list and then upgrade everything. No manual intervention necessary.
 
+**NOTE:** As of v1.8.0, IngameDebugConsole uses TextMesh Pro by default.
+
 ### Upgrading [DynamicPanels](https://github.com/yasirkula/UnityDynamicPanels)
 
 Add `Plugins/DynamicPanels` folder to the **Assets & Scenes To Upgrade** list and then upgrade everything. While upgrading the scripts, *DynamicPanelsCanvasEditor.cs* will throw a compiler error. Fix it as follows before proceeding to upgrade the components:
@@ -68,6 +70,8 @@ anchoredPanelGUIStyle = new GUIStyle( "box" )
 ### Upgrading [SimpleFileBrowser](https://github.com/yasirkula/UnitySimpleFileBrowser)
 
 Add `Plugins/SimpleFileBrowser` folder to the **Assets & Scenes To Upgrade** list and then upgrade everything. No manual intervention necessary.
+
+**NOTE:** As of v1.7.0, SimpleFileBrowser uses TextMesh Pro by default.
 
 ### Upgrading [ImageCropper](https://github.com/yasirkula/UnityImageCropper)
 

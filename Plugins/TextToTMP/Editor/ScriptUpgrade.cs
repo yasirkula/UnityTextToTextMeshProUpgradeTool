@@ -2,9 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
-#if UNITY_2017_3_OR_NEWER
 using UnityEditor.Compilation;
-#endif
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -14,23 +12,31 @@ namespace TextToTMPNamespace
 	{
 		#region Helper Classes
 #pragma warning disable 0649
-#if UNITY_2017_3_OR_NEWER
 		// Reference: https://docs.unity3d.com/Manual/ScriptCompilationAssemblyDefinitionFiles.html
 		[Serializable]
 		private class AssemblyDefinitionFileContents
 		{
+			[Serializable]
+			public class VersionDefine
+			{
+				public string name;
+				public string expression;
+				public string define;
+			}
+
 			public string name;
+			public string rootNamespace;
 			public string[] references;
 			public string[] includePlatforms;
 			public string[] excludePlatforms;
 			public bool allowUnsafeCode;
-			public bool autoReferenced = true;
 			public bool overrideReferences;
 			public string[] precompiledReferences;
+			public bool autoReferenced = true;
 			public string[] defineConstraints;
-			public string[] optionalUnityReferences;
+			public VersionDefine[] versionDefines;
+			public bool noEngineReferences;
 		}
-#endif
 #pragma warning restore 0649
 		#endregion
 
@@ -90,12 +96,20 @@ namespace TextToTMPNamespace.Instance{0}";
 
 		public static void SetTMPHorizontalOverflow( this TMP_Text tmp, HorizontalWrapMode overflow )
 		{
+#if TMP_3_2_OR_NEWER
+			tmp.textWrappingMode = ( overflow == HorizontalWrapMode.Wrap ) ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+#else
 			tmp.enableWordWrapping = ( overflow == HorizontalWrapMode.Wrap );
+#endif
 		}
 
 		public static HorizontalWrapMode GetTMPHorizontalOverflow( this TMP_Text tmp )
 		{
+#if TMP_3_2_OR_NEWER
+			return ( tmp.textWrappingMode == TextWrappingModes.Normal || tmp.textWrappingMode == TextWrappingModes.PreserveWhitespace ) ? HorizontalWrapMode.Wrap : HorizontalWrapMode.Overflow;
+#else
 			return tmp.enableWordWrapping ? HorizontalWrapMode.Wrap : HorizontalWrapMode.Overflow;
+#endif
 		}
 
 		public static void SetTMPVerticalOverflow( this TMP_Text tmp, TextOverflowModes overflow )
@@ -216,19 +230,14 @@ namespace TextToTMPNamespace.Instance{0}";
 		};
 		#endregion
 
-#if UNITY_2017_3_OR_NEWER
 		private string textMeshProAssemblyDefinitionName;
 		private string textMeshProAssemblyDefinitionFilePath;
-#endif
 
 		private ObjectsToUpgradeList scriptsToUpgrade = new ObjectsToUpgradeList();
-#if UNITY_2017_3_OR_NEWER
 		private ObjectsToUpgradeList assemblyDefinitionFilesToUpgrade = new ObjectsToUpgradeList();
-#endif
 
 		private void UpgradeScripts()
 		{
-#if UNITY_2017_3_OR_NEWER
 			textMeshProAssemblyDefinitionFilePath = CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName( "Unity.TextMeshPro" );
 			if( !string.IsNullOrEmpty( textMeshProAssemblyDefinitionFilePath ) )
 				textMeshProAssemblyDefinitionName = "Unity.TextMeshPro";
@@ -243,16 +252,11 @@ namespace TextToTMPNamespace.Instance{0}";
 						textMeshProAssemblyDefinitionFilePath = CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName( textMeshProAssemblyDefinitionName );
 				}
 			}
-#endif
 
 			stringBuilder.Length = 0;
 
 			int progressCurrent = 0;
-#if UNITY_2017_3_OR_NEWER
 			int progressTotal = scriptsToUpgrade.EnabledCount + assemblyDefinitionFilesToUpgrade.EnabledCount;
-#else
-			int progressTotal = scriptsToUpgrade.EnabledCount;
-#endif
 
 			try
 			{
@@ -264,7 +268,6 @@ namespace TextToTMPNamespace.Instance{0}";
 					UpgradeScript( script );
 				}
 
-#if UNITY_2017_3_OR_NEWER
 				foreach( string assemblyDefinitionFile in assemblyDefinitionFilesToUpgrade )
 				{
 					EditorUtility.DisplayProgressBar( "Upgrading Assembly Definition Files...", assemblyDefinitionFile, (float) progressCurrent / progressTotal );
@@ -272,7 +275,6 @@ namespace TextToTMPNamespace.Instance{0}";
 
 					UpgradeAssemblyDefinitionFile( assemblyDefinitionFile );
 				}
-#endif
 			}
 			finally
 			{
@@ -334,6 +336,8 @@ namespace TextToTMPNamespace.Instance{0}";
 				scriptModified = scriptModified.Replace( " as " + tokenReplacementsVariableDeclarations[i] + ")", " as " + tokenReplacementsVariableDeclarations[i + 1] + ")" );
 				scriptModified = scriptModified.Replace( " is " + tokenReplacementsVariableDeclarations[i] + ";", " is " + tokenReplacementsVariableDeclarations[i + 1] + ";" );
 				scriptModified = scriptModified.Replace( " as " + tokenReplacementsVariableDeclarations[i] + ";", " as " + tokenReplacementsVariableDeclarations[i + 1] + ";" );
+				// Inline 'out' variable declarations
+				scriptModified = scriptModified.Replace( "out " + tokenReplacementsVariableDeclarations[i] + " ", "out " + tokenReplacementsVariableDeclarations[i + 1] + " " );
 				// Extensions functions
 				scriptModified = scriptModified.Replace( "this " + tokenReplacementsVariableDeclarations[i] + " ", "this " + tokenReplacementsVariableDeclarations[i + 1] + " " );
 				// Instantiation
@@ -403,7 +407,6 @@ namespace TextToTMPNamespace.Instance{0}";
 			scriptContents = scriptContents.Insert( extensionFunctionsInsertIndex, string.Format( EXTENSION_FUNCTIONS_NAMESPACE_DECLARATION, namespaceGuid ) + EXTENSION_FUNCTIONS_BODY );
 		}
 
-#if UNITY_2017_3_OR_NEWER
 		private void UpgradeAssemblyDefinitionFile( string path )
 		{
 			if( string.IsNullOrEmpty( path ) || string.IsNullOrEmpty( textMeshProAssemblyDefinitionName ) )
@@ -417,12 +420,7 @@ namespace TextToTMPNamespace.Instance{0}";
 			{
 				for( int i = 0; i < asmFile.references.Length; i++ )
 				{
-#if UNITY_2019_1_OR_NEWER
 					string assemblyPath = CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyReference( asmFile.references[i] );
-#else
-					string assemblyPath = CompilationPipeline.GetAssemblyDefinitionFilePathFromAssemblyName( asmFile.references[i] );
-#endif
-
 					if( assemblyPath == textMeshProAssemblyDefinitionFilePath )
 						return;
 				}
@@ -439,7 +437,6 @@ namespace TextToTMPNamespace.Instance{0}";
 			stringBuilder.Append( "Upgrading Assembly Definition File: " ).AppendLine( path );
 			File.WriteAllText( path, JsonUtility.ToJson( asmFile, true ) );
 		}
-#endif
 
 		private void AddScriptToUpgrade( string scriptPath )
 		{

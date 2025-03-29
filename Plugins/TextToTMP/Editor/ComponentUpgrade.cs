@@ -27,9 +27,7 @@ namespace TextToTMPNamespace
 
 		private FieldInfo unityEventPersistentCallsField, unityEventPersistentCallsListField, unityEventPersistentCallTargetField;
 		private FieldInfo inputFieldOnSubmitField;
-#if UNITY_2018_3_OR_NEWER
 		private MethodInfo prefabCyclicReferenceCheckerMethod;
-#endif
 		private MethodInfo rectTransformAnchorsSetterMethod;
 
 		private void UpgradeComponents()
@@ -61,7 +59,6 @@ namespace TextToTMPNamespace
 					}
 				}
 
-#if UNITY_2018_3_OR_NEWER
 				// Upgrade nested prefabs before their parent prefabs and base prefabs before their variant prefabs so that changes to
 				// the base prefabs are reflected to their variant prefabs before we start upgrading those variant prefabs
 				if( prefabCyclicReferenceCheckerMethod == null )
@@ -84,7 +81,6 @@ namespace TextToTMPNamespace
 					prefabsToUpgrade[swapIndex] = prefabsToUpgrade[i];
 					prefabsToUpgrade[i] = temp;
 				}
-#endif
 
 				foreach( GameObject prefab in prefabsToUpgrade )
 				{
@@ -155,15 +151,9 @@ namespace TextToTMPNamespace
 			if( ( prefab.hideFlags & HideFlags.NotEditable ) == HideFlags.NotEditable )
 				return false;
 
-#if UNITY_2018_3_OR_NEWER
 			PrefabAssetType prefabAssetType = PrefabUtility.GetPrefabAssetType( prefab );
 			if( prefabAssetType != PrefabAssetType.Regular && prefabAssetType != PrefabAssetType.Variant )
 				return false;
-#else
-			PrefabType prefabAssetType = PrefabUtility.GetPrefabType( prefab );
-			if( prefabAssetType != PrefabType.Prefab )
-				return false;
-#endif
 
 			// Check if prefab has any upgradeable components
 			if( prefab.GetComponentInChildren<TextMesh>( true ) )
@@ -181,34 +171,19 @@ namespace TextToTMPNamespace
 		private void UpgradeComponentsInPrefab( GameObject prefab )
 		{
 			// Instantiate the prefab, we need instances to change children's parents (needed in InputField's upgrade)
-#if UNITY_2018_3_OR_NEWER
 			string prefabPath = AssetDatabase.GetAssetPath( prefab );
 			GameObject prefabInstanceRoot = PrefabUtility.LoadPrefabContents( prefabPath );
-#else
-			GameObject prefabInstanceRoot = (GameObject) PrefabUtility.InstantiatePrefab( prefab );
-			PrefabUtility.DisconnectPrefabInstance( prefabInstanceRoot );
-#endif
 
 			upgradedComponentsToRemoveInPrefabInstances.Clear();
 
 			try
 			{
 				UpgradeGameObjectRecursively( prefabInstanceRoot, prefab );
-
-
-#if UNITY_2018_3_OR_NEWER
 				prefab = PrefabUtility.SaveAsPrefabAsset( prefabInstanceRoot, prefabPath );
-#else
-				prefab = PrefabUtility.ReplacePrefab( prefabInstanceRoot, prefab, ReplacePrefabOptions.ConnectToPrefab );
-#endif
 			}
 			finally
 			{
-#if UNITY_2018_3_OR_NEWER
 				PrefabUtility.UnloadPrefabContents( prefabInstanceRoot );
-#else
-				DestroyImmediate( prefabInstanceRoot );
-#endif
 			}
 
 			// Remove upgraded Text, InputField, Dropdown and TextMesh components from the prefab instances that
@@ -228,11 +203,7 @@ namespace TextToTMPNamespace
 						if( !component )
 							continue;
 
-#if UNITY_2018_3_OR_NEWER
 						Component prefabComponent = PrefabUtility.GetCorrespondingObjectFromSource( component );
-#else
-						Component prefabComponent = (Component) PrefabUtility.GetPrefabParent( component );
-#endif
 						if( prefabComponent && prefabComponent.gameObject == removedComponentHolder.componentOwner )
 						{
 							stringBuilder.Append( "Removing " ).Append( component.GetType().Name ).Append( " from " ).Append( GetPathOfObject( component.transform ) ).AppendLine( " since its legacy version was also removed as prefab override" );
@@ -504,11 +475,7 @@ namespace TextToTMPNamespace
 				// Copy UnityEvents
 				onEndEdit = CopyUnityEvent( inputField.onEndEdit ),
 				onSubmit = ( inputFieldOnSubmitField != null ) ? CopyUnityEvent( inputFieldOnSubmitField.GetValue( inputField ) as UnityEventBase ) : null,
-#if UNITY_5_3_OR_NEWER
 				onValueChanged = CopyUnityEvent( inputField.onValueChanged )
-#else
-				onValueChanged = CopyUnityEvent( inputField.onValueChange )
-#endif
 			};
 		}
 
@@ -544,19 +511,17 @@ namespace TextToTMPNamespace
 
 			/// <see cref="InputField.onSubmit"/> event isn't serialized in <see cref="TMP_InputField.onSubmit"/>, so its callbacks can't be copied directly.
 			/// A bridge component (<see cref="TMP_InputFieldOnSubmitEvent"/>) is used to serialize that event on TMPro.
-			if( properties.onSubmit != null && properties.onSubmit.persistentCalls != null )
+			if( properties.onSubmit != null && properties.onSubmit.persistentCalls != null && ( (IList) unityEventPersistentCallsListField.GetValue( properties.onSubmit.persistentCalls ) ).Count > 0 )
 			{
 				stringBuilder.Append( "Upgrading InputField.OnSubmit event using " ).Append( typeof( TMP_InputFieldOnSubmitEvent ).Name ).Append( " component: " ).AppendLine( GetPathOfObject( tmp.transform ) );
 				TMP_InputFieldOnSubmitEvent bridgeComponent = tmp.GetComponent<TMP_InputFieldOnSubmitEvent>();
-				if( bridgeComponent == null && ( (IList) unityEventPersistentCallsListField.GetValue( properties.onSubmit.persistentCalls ) ).Count > 0 )
+				if( bridgeComponent == null )
 					bridgeComponent = tmp.gameObject.AddComponent<TMP_InputFieldOnSubmitEvent>();
 
 				if( bridgeComponent != null )
 				{
 					PasteUnityEvent( bridgeComponent.onSubmit, properties.onSubmit );
-#if UNITY_2018_3_OR_NEWER
 					PrefabUtility.RecordPrefabInstancePropertyModifications( bridgeComponent );
-#endif
 				}
 			}
 		}
@@ -671,16 +636,10 @@ namespace TextToTMPNamespace
 					viewport.pivot = textTransform.pivot;
 					viewport.anchoredPosition = textTransform.anchoredPosition;
 					viewport.sizeDelta = textTransform.sizeDelta;
+					viewport.GetComponent<RectMask2D>().padding = new Vector4( -2f, -5f, -2f, -5f );
 
-					// RectMask2D.padding is reportedly added in Unity 2019.4.14: https://forum.unity.com/threads/2-1-4-does-not-contain-a-definition-for-padding.1064537/
-#if UNITY_2019_4_OR_NEWER && !UNITY_2019_4_1 && !UNITY_2019_4_2 && !UNITY_2019_4_3 && !UNITY_2019_4_4 && !UNITY_2019_4_5 && !UNITY_2019_4_6 && !UNITY_2019_4_7 && !UNITY_2019_4_8 && !UNITY_2019_4_9 && !UNITY_2019_4_10 && !UNITY_2019_4_11 && !UNITY_2019_4_12 && !UNITY_2019_4_13
-					viewport.GetComponent<RectMask2D>().padding = new Vector4( 2f - viewport.offsetMin.x, 1f - viewport.offsetMin.y, 2f + viewport.offsetMax.x, 2f + viewport.offsetMax.y );
-#endif
-
-#if UNITY_2018_3_OR_NEWER
 					PrefabUtility.RecordPrefabInstancePropertyModifications( viewport.gameObject );
 					PrefabUtility.RecordPrefabInstancePropertyModifications( viewport );
-#endif
 
 					for( int i = tmp.transform.childCount - 1; i >= 0; i-- )
 					{
@@ -711,9 +670,7 @@ namespace TextToTMPNamespace
 									rectTransformAnchorsSetterMethod.Invoke( null, new object[] { child, 1, 1, true, true, true } );
 								}
 
-#if UNITY_2018_3_OR_NEWER
 								PrefabUtility.RecordPrefabInstancePropertyModifications( child );
-#endif
 							}
 						}
 					}
