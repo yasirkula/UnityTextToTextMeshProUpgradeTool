@@ -274,6 +274,7 @@ namespace TextToTMPNamespace
 
 			// Paste fields
 			PasteTextProperties( tmp, properties );
+			tmp.parseCtrlCharacters = false; // Escape characters (e.g. '\n', '\r') aren't parsed in legacy Text but they are parsed by TMP by default
 			tmp.rectTransform.sizeDelta = sizeDelta;
 
 			return tmp;
@@ -356,6 +357,7 @@ namespace TextToTMPNamespace
 			tmp.enableWordWrapping = false;
 #endif
 			tmp.overflowMode = TextOverflowModes.Overflow;
+			tmp.parseCtrlCharacters = false; // Escape characters (e.g. '\n', '\r') aren't parsed in legacy Text but they are parsed by TMP by default
 			tmp.rectTransform.sizeDelta = Vector2.zero;
 
 			return tmp;
